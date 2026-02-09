@@ -158,20 +158,57 @@
       }, { waitForLastChange: true });
     }
 
-    openModal(){
-      $bg = $(`
-        <div class="TPV4-w-full TPV4-h-full TPV4-absolute TPV4-z-1 TPV4-bg-black-400/30 TPV4-backdrop-blur-xl"></div>  
-      `)
-      $modal = $(`
-        <div class="TPV4-w-full TPV4-h-full fixed TPV4-z-999999 TPV4-bg-black-300/30 TPV4-backdrop-blur-xl">
-        </div>
-      `)
-      if (!this.modalInit){
-        $("body").append($modal)
-        this.modalInit = true;
-      }
+    openModal = () => {
+      if ($("#tp-modal-root").length) return;
 
-      $modal.show();
+      const $modal = $(`
+        <div id="tp-modal-root" class="TPV4-fixed TPV4-inset-0 TPV4-z-[999999] TPV4-flex TPV4-items-center TPV4-justify-center TPV4-p-4">          
+          <div id="tp-modal-backdrop" class="TPV4-absolute TPV4-inset-0 TPV4-bg-slate-900/40 TPV4-backdrop-blur-sm TPV4-transition-opacity"></div>          
+          <div class="TPV4-relative TPV4-bg-white TPV4-w-full TPV4-max-w-[550px] TPV4-rounded-[24px] TPV4-shadow-[0_20px_50px_rgba(0,0,0,0.15)] TPV4-overflow-hidden TPV4-animate-in TPV4-zoom-in TPV4-fade-in TPV4-duration-300">
+            <div class="TPV4-h-1.5 TPV4-w-full TPV4-bg-gradient-to-r TPV4-from-orange-400 TPV4-via-orange-600 TPV4-to-red-600"></div>
+            <div class="TPV4-p-8">
+              <div class="TPV4-flex TPV4-justify-between TPV4-items-start TPV4-mb-6">
+                <div>
+                  <h3 class="TPV4-text-[22px] TPV4-font-extrabold TPV4-text-slate-800 TPV4-leading-tight TPV4-m-0">
+                    ${this.functionName}
+                  </h3>
+                  <p class="TPV4-text-slate-400 TPV4-text-sm TPV4-mt-1 TPV4-font-medium">Quản lý và tối ưu phân loại sản phẩm nhanh chóng</p>
+                </div>
+                <button id="tp-modal-close" class="TPV4-group TPV4-bg-slate-50 TPV4-p-2 TPV4-rounded-full TPV4-transition-all hover:TPV4-bg-red-50 TPV4-border-none TPV4-cursor-pointer">
+                  <svg class="TPV4-w-5 TPV4-h-5 TPV4-text-slate-400 group-hover:TPV4-text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              </div>
+              <div class="TPV4-space-y-5">
+                <div class="TPV4-relative">
+                  <label class="TPV4-block TPV4-text-[13px] TPV4-font-bold TPV4-text-slate-700 TPV4-uppercase TPV4-tracking-wider TPV4-mb-2">Nhập dữ liệu phân loại</label>
+                  <textarea 
+                    id="tp-input-data"
+                    class="TPV4-w-full TPV4-min-h-[140px] TPV4-p-4 TPV4-bg-slate-50 TPV4-border-2 TPV4-border-transparent TPV4-rounded-xl TPV4-text-slate-700 TPV4-text-sm TPV4-transition-all TPV4-outline-none focus:TPV4-bg-white focus:TPV4-border-orange-500/50 focus:TPV4-ring-4 focus:TPV4-ring-orange-500/10"
+                    placeholder="Ví dụ: Đỏ, Vàng, Xanh (Tự động tách bằng dấu phẩy)"
+                  ></textarea>
+                </div>
+                <div class="TPV4-flex TPV4-items-center TPV4-gap-3 TPV4-p-4 TPV4-bg-blue-50 TPV4-rounded-xl">
+                  <span class="TPV4-text-blue-500">💡</span>
+                  <p class="TPV4-text-[12px] TPV4-text-blue-700 TPV4-m-0 TPV4-leading-relaxed">
+                    Mẹo: Bạn có thể copy một cột từ <b>Excel</b> hoặc <b>Google Sheets</b> và dán trực tiếp vào đây.
+                  </p>
+                </div>
+              </div>
+              <div class="TPV4-flex TPV4-items-center TPV4-justify-end TPV4-gap-4 TPV4-mt-8">
+                <button id="tp-btn-cancel" class="TPV4-text-slate-500 TPV4-text-sm TPV4-font-semibold TPV4-bg-transparent TPV4-border-none TPV4-cursor-pointer hover:TPV4-text-slate-800 TPV4-transition-colors">
+                  Để sau
+                </button>
+                <button id="tp-btn-confirm" class="TPV4-bg-slate-900 TPV4-text-white TPV4-px-8 TPV4-py-3 TPV4-rounded-xl TPV4-font-bold TPV4-text-sm TPV4-shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:TPV4-bg-orange-600 hover:TPV4-shadow-[0_10px_20px_rgba(238,77,45,0.3)] TPV4-transition-all TPV4-duration-300 TPV4-border-none TPV4-cursor-pointer">
+                  Áp dụng ngay
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `);
+
+      $("body").append($modal);
+      // ... (giữ nguyên các sự kiện click và remove)
     }
   }
 
