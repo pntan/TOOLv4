@@ -124,94 +124,93 @@
     constructor(utils) {
       this.UTILS = utils;
       this.functionName = "Thêm Phân Loại";
+      this.$modal = null;
+      this.platform = null;
       this.init();
-      this.modalInit = false;
     }
 
     init() {
       const host = this.UTILS.getHost();
       if (host.includes("shopee")) {
-        // Kiểm tra xem có đang ở trang sửa/thêm sản phẩm không
         if (this.UTILS.getPathName().includes("/portal/product")) {
           this.initLayoutShopee();
+          this.platform = "shopee";
         }
       }
     }
 
     initLayoutShopee() {
-      // Dùng selector bạn đã tìm thấy
       const target = ".product-detail-panel.product-sales-info .panel-header";
       
       this.UTILS.waitForElement(document, target, (e) => {
         if (!$(e).find(".tp-btn-add").length) {
-          // Sử dụng Tailwind class với prefix TPV4-
           const $btn = $(`
-            <button
-              class="TPV4-bg-gradient-to-r TPV4-from-[#ff5722] TPV4-to-[#f53d2d] TPV4-font-[600] TPV4-text-white TPV4-shadow TPV4-text-black TPV4-p-3 TPV4-rounded-xl hover:TPV4-bg-gray-400/50"
-            >
+            <button class="tp-btn-add TPV4-bg-gradient-to-r TPV4-from-[#ff5722] TPV4-to-[#f53d2d] TPV4-font-[600] TPV4-text-white TPV4-shadow-md TPV4-px-5 TPV4-py-2 TPV4-rounded-xl hover:TPV4-brightness-110 TPV4-transition-all TPV4-ml-4 TPV4-border-none TPV4-cursor-pointer">
               ${this.functionName}
             </button>
           `);
-          $btn.on("click", this.openModal)
+
+          // Sử dụng arrow function để giữ đúng ngữ cảnh 'this'
+          $btn.on("click", (event) => {
+            event.preventDefault();
+            this.openModal();
+          });
+
           $(e).append($btn);
         }
       }, { waitForLastChange: true });
     }
 
-    openModal = () => {
-      if ($("#tp-modal-root").length) return;
+    openModal() {
+      if(this.$modal){
+        this.$modal.show();
+        return;
+      }
 
-      const $modal = $(`
-        <div id="tp-modal-root" class="TPV4-fixed TPV4-inset-0 TPV4-z-[999999] TPV4-flex TPV4-items-center TPV4-justify-center TPV4-p-4">          
-          <div id="tp-modal-backdrop" class="TPV4-absolute TPV4-inset-0 TPV4-bg-slate-900/40 TPV4-backdrop-blur-sm TPV4-transition-opacity"></div>          
-          <div class="TPV4-relative TPV4-bg-white TPV4-w-full TPV4-max-w-[550px] TPV4-rounded-[24px] TPV4-shadow-[0_20px_50px_rgba(0,0,0,0.15)] TPV4-overflow-hidden TPV4-animate-in TPV4-zoom-in TPV4-fade-in TPV4-duration-300">
-            <div class="TPV4-h-1.5 TPV4-w-full TPV4-bg-gradient-to-r TPV4-from-orange-400 TPV4-via-orange-600 TPV4-to-red-600"></div>
-            <div class="TPV4-p-8">
-              <div class="TPV4-flex TPV4-justify-between TPV4-items-start TPV4-mb-6">
-                <div>
-                  <h3 class="TPV4-text-[22px] TPV4-font-extrabold TPV4-text-slate-800 TPV4-leading-tight TPV4-m-0">
-                    ${this.functionName}
-                  </h3>
-                  <p class="TPV4-text-slate-400 TPV4-text-sm TPV4-mt-1 TPV4-font-medium">Quản lý và tối ưu phân loại sản phẩm nhanh chóng</p>
-                </div>
-                <button id="tp-modal-close" class="TPV4-group TPV4-bg-slate-50 TPV4-p-2 TPV4-rounded-full TPV4-transition-all hover:TPV4-bg-red-50 TPV4-border-none TPV4-cursor-pointer">
-                  <svg class="TPV4-w-5 TPV4-h-5 TPV4-text-slate-400 group-hover:TPV4-text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-              </div>
-              <div class="TPV4-space-y-5">
-                <div class="TPV4-relative">
-                  <label class="TPV4-block TPV4-text-[13px] TPV4-font-bold TPV4-text-slate-700 TPV4-uppercase TPV4-tracking-wider TPV4-mb-2">Nhập dữ liệu phân loại</label>
-                  <textarea 
-                    id="tp-input-data"
-                    class="TPV4-w-full TPV4-min-h-[140px] TPV4-p-4 TPV4-bg-slate-50 TPV4-border-2 TPV4-border-transparent TPV4-rounded-xl TPV4-text-slate-700 TPV4-text-sm TPV4-transition-all TPV4-outline-none focus:TPV4-bg-white focus:TPV4-border-orange-500/50 focus:TPV4-ring-4 focus:TPV4-ring-orange-500/10"
-                    placeholder="Ví dụ: Đỏ, Vàng, Xanh (Tự động tách bằng dấu phẩy)"
-                  ></textarea>
-                </div>
-                <div class="TPV4-flex TPV4-items-center TPV4-gap-3 TPV4-p-4 TPV4-bg-blue-50 TPV4-rounded-xl">
-                  <span class="TPV4-text-blue-500">💡</span>
-                  <p class="TPV4-text-[12px] TPV4-text-blue-700 TPV4-m-0 TPV4-leading-relaxed">
-                    Mẹo: Bạn có thể copy một cột từ <b>Excel</b> hoặc <b>Google Sheets</b> và dán trực tiếp vào đây.
-                  </p>
-                </div>
-              </div>
-              <div class="TPV4-flex TPV4-items-center TPV4-justify-end TPV4-gap-4 TPV4-mt-8">
-                <button id="tp-btn-cancel" class="TPV4-text-slate-500 TPV4-text-sm TPV4-font-semibold TPV4-bg-transparent TPV4-border-none TPV4-cursor-pointer hover:TPV4-text-slate-800 TPV4-transition-colors">
-                  Để sau
-                </button>
-                <button id="tp-btn-confirm" class="TPV4-bg-slate-900 TPV4-text-white TPV4-px-8 TPV4-py-3 TPV4-rounded-xl TPV4-font-bold TPV4-text-sm TPV4-shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:TPV4-bg-orange-600 hover:TPV4-shadow-[0_10px_20px_rgba(238,77,45,0.3)] TPV4-transition-all TPV4-duration-300 TPV4-border-none TPV4-cursor-pointer">
-                  Áp dụng ngay
-                </button>
-              </div>
+      this.$modal = $(`
+        <div class="TPV4-w-full TPV4-h-full TPV4-fixed TPV4-top-0 TPV4-left-0 TPV4-z-9999999999999999999999">
+          <div class="TPV4-w-full TPV4-h-full TPV4-absolute TPV4-bg-black/40 TPV4-backdrop-blur-xl TPV4-z-9999999999999999999999"></div>
+          <div class="TPV4-w-full TPV4-h-full TPV4-absolute TPV4-top-0 TPV4-left-0 TPV4-flex TPV4-flex-col TPV4-gap-3 TPV4-justify-center TPV4-items-center TPV4-z-9999999999999999999999">
+            <div class"TPV4-w-auto TPV4-h-auto">
+              <p class="TPV4-text-white TPV4-font-[700]">${this.functionName}</p>
+              <textarea
+                placeholder="Mỗi phân loại là một dòng, các trường phân cách bằng 1 TAB\n\t- SKU\n\t- Tên Phân Loại\n\t- Giá Bán (Mặc định sẽ là giá tiền cao nhất có thể trong link để không bị 5 lần giá)\n\t- Số Lượng (Mặc định số lượng = 0)"
+                id="TPV4-data"
+                class="TPV4-rounded-xl TPV4-p-3 TPV4-resize TPV4-bg-white/70 TPV4-shadow"
+              ></textarea>
+            </div>
+            <div class="TPV4-w-fit TPV4-h-fit">
+              <button id="TPV4-confirm" class="TPV4-w-fit TPV4-h-fit TPV4-p-3 TPV4-rounded-xl TPV4-bg-[oklch(0.9029_0.1675_166.11)]">Xác Nhận</button>
             </div>
           </div>
-        </div>
-      `);
+        </div>  
+      `)
 
-      $("body").append($modal);
-      $($modal).find("#tp-btn-cancel").on("click", $modal.hide());
-      $($modal).find("#tp-btn-confirm").on("click", $modal.hide());
-      $($modal).find("#tp-modal-backdrop").on("click", $modal.hide());
-      
+      $("body").append(this.$modal);
+
+      $(this.$modal).find("#TPV4-confirm").on("click", (e) => {
+        this.addVariant($(this.$modal).find("#TPV4-data").val())
+        $(this.$modal).hide();
+      })
+
+      $(this.$modal).on("click", (e) => {
+        $(this.$modal).hide();
+      })
+    }
+
+    addVariant(data){
+      data = data.split("\n");
+
+      const array_data = [];
+      $.each(data, (i, v) => {
+        array_data.push(v.split("\t"));
+      })
+
+      if(this.platform == "shopee") this.addShopee(array_data);
+    }
+
+    addShopee(data){
+      console.log(data);
     }
   }
 
@@ -219,6 +218,7 @@
     constructor() {
       this.utils = new UTILS();
       this.initTailwind();
+      this.addTabTextarea();
       this.ThemPhanLoai = new ThemPhanLoai(this.utils);
     }
 
@@ -243,6 +243,21 @@
 
       // Sau 10s không thấy thì dừng để tránh tốn tài nguyên
       setTimeout(() => clearInterval(checkTailwind), 10000);
+    }
+
+    async addTabTextarea(){
+      $(document).on("keydown", "textarea", function(event) {
+        if (event.keyCode == 9) { // keyCode 9 là mã ASCII của phím Tab
+          event.preventDefault();
+
+          var start = this.selectionStart;
+          var end = this.selectionEnd;
+
+          $(this).val($(this).val().substring(0, start) + '\t' + $(this).val().substring(end));
+
+          this.selectionStart = this.selectionEnd = start + 1;
+        }
+      })
     }
   }
 
