@@ -208,7 +208,10 @@
       `);
 
       $("body").append($modal);
-      // ... (giữ nguyên các sự kiện click và remove)
+      $($modal).find("#tp-btn-cancel").on("click", $modal.hide());
+      $($modal).find("#tp-btn-confirm").on("click", $modal.hide());
+      $($modal).find("#tp-modal-backdrop").on("click", $modal.hide());
+      
     }
   }
 
