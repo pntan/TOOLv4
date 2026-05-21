@@ -1167,26 +1167,68 @@ async function ProductDetailShopee() {
 
   // Danh sách các chức năng hàng loạt
   waitForElement(".edit-row.batch-edit-row", async (element) => {
-    const replacePriceBtn = createButton({ text: "Cập Nhật Giá"});
+    const replacePriceBtn = createButton({ text: "Cập Nhật Giá" });
     const featureCard = createCardContainer({ contentHTML: replacePriceBtn });
     const bulkCard = createCardContainer({ title: "Xử Lý Hàng Loạt", contentHTML: featureCard, style: "margin: 1vw 0; width: 100%;", className: "tp-bulkCard" });
 
     $(element).append(bulkCard);
 
-    // Sửa giá theo SKU
-    $(element).find(".tp-bulkCard button:contains('Cập Nhật Giá')").on("click", async () => {
-      const typeSlc = createSelect({ options: ["Toàn Bộ", "Giá Đầu", "Giá Đuôi"], style: "margin: 1vw 0"});
-      const data = createTextarea({ placeholder: "Mỗi SKU là một dòng theo cấu trúc (phân tách bằng 1 tab)\nSKU | Giá cần đổi"});
-      const confirmBtn = createButton({ text: "Xác Nhận", style: "margin: 1vw 0" });
+    // Sự kiện khi nhấn nút "Cập Nhật Giá" lần đầu để mở Form cấu hình
+    $(element).find(".tp-bulkCard button:contains('Cập Nhật Giá')").on("click", function() {
+      // Nếu Form chỉnh giá đã mở rồi thì không tạo trùng lặp nữa
+      if ($(element).find(".tp-editPriceCard").length > 0) return;
+
+      // Cấu hình Select với value chuẩn hóa tiếng Anh để hàm xử lý phân loại (switch-case) đọc được
+      const typeSlc = createSelect({ 
+        id: "tp-select-price-type",
+        options: [
+          { value: "all", label: "Toàn Bộ" },
+          { value: "dau", label: "Giá Đầu" },
+          { value: "duoi", label: "Giá Đuôi" }
+        ], 
+        style: "margin: 1vw 0; display: block;" 
+      });
+
+      const dataTextarea = createTextarea({ 
+        id: "tp-textarea-price-data",
+        placeholder: "Mỗi SKU là một dòng theo cấu trúc (phân tách bằng 1 tab):\nSKU | Giá cần đổi" 
+      });
+
+      const confirmBtn = createButton({ text: "Xác Nhận", style: "margin: 1vw 0; margin-right: 8px;" });
       const cancelBtn = createButton({ text: "Hủy", variant: "danger", style: "margin: 1vw 0" });
-      const editPriceCard = createCardContainer({ title: "Cập Nhật Giá", contentHTML: typeSlc + data + confirmBtn + cancelBtn, className:"tp-editPriceCard" });
+      
+      const editPriceCard = createCardContainer({ 
+        title: "Cấu hình thay đổi giá", 
+        contentHTML: typeSlc + dataTextarea + `<div style="display: flex;">${confirmBtn}${cancelBtn}</div>`, 
+        className: "tp-editPriceCard",
+        style: "margin-top: 15px; border-left: 3px solid #3b82f6;"
+      });
 
       $(element).find(".tp-bulkCard").append(editPriceCard);
 
-      $(element).find(".tp-bulkCard .tp-editPriceCard button:contains('Xác Nhận')").on("click", async () => {
-        console.log($(this));
-      })
-    })
+      // 🔴 1. XỬ LÝ SỰ KIỆN NÚT "XÁC NHẬN" ĐỂ CHẠY LOGIC SỬA GIÁ
+      $(element).find(".tp-bulkCard .tp-editPriceCard button:contains('Xác Nhận')").on("click", async function() {
+        const btn = $(this);
+        
+        // Khóa nút để tránh người dùng click spam khi tiến trình đang chạy
+        btn.prop("disabled", true).text("Đang xử lý...").css("background", "#94a3b8");
+
+        try {
+          // Gọi hàm xử lý cốt lõi đã được tối ưu hiệu năng
+          await suaGiaSKUShopee(); 
+        } catch (error) {
+          console.error("Lỗi sửa giá:", error);
+        } finally {
+          // Mở khóa nút bấm sau khi xử lý xong
+          btn.prop("disabled", false).text("Xác Nhận").css("background", "#3b82f6");
+        }
+      });
+
+      // 🟢 2. XỬ LÝ SỰ KIỆN NÚT "HỦY" ĐỂ ĐÓNG VÀ DỌN FORM
+      $(element).find(".tp-bulkCard .tp-editPriceCard button:contains('Hủy')").on("click", function() {
+        $(element).find(".tp-editPriceCard").remove();
+      });
+    });
   }, { once: true });
 
   // Mở rộng và load mã phân loại
