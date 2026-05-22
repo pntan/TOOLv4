@@ -1276,7 +1276,7 @@ async function ProductDetailShopee() {
 
                 // Trường hợp bị 5 lần giá
                 if(parseInt(targetPrice) > parseInt(max_price) || parseInt(targetPrice) < parseInt(min_price)){
-                  const errorText = createText({ text: "Giá có thể bị sai quy định 5 lần giá", color: "orange", className: "tp-errorEditPrice" });
+                  const errorText = createText({ text: "Giá có thể bị sai quy định 5 lần giá", color: "red", className: "tp-errorEditPrice" });
                   price.parent().parent().parent().parent().parent().parent().append(errorText);
                   error = true;
                 }
@@ -1288,9 +1288,15 @@ async function ProductDetailShopee() {
               // Sửa giá đầu
               case 1:
                 const { giaDau: giaDauGoc, giaDuoi: giaDuoiGoc } = await tachGia(price.val());
-                const { giaDau, giaDuoi } = await tachGia(price_list[sku.val()]);
-                console.log({ giaDauGoc, giaDuoiGoc });
+                
+                if( giaDuoiGoc < targetPrice)
+                  giaDauGoc -= 1;
 
+                if(giaDauGoc < targetPrice){                  
+                  const errorText = createText({ text: `Giá đầu sau khi cập nhật nhỏ hơn giá đuôi (${giaDauGoc} < ${targetPrice})`, color: "red", className: "tp-errorEditPrice" });
+                  price.parent().parent().parent().parent().parent().parent().append(errorText);
+                  error = true;
+                }
             }
           }
         }
@@ -1563,7 +1569,7 @@ async function ProductDetailShopee() {
               if (currentSkuIndex >= box.length) continue;
 
               const currentSkuBox = box.eq(currentSkuIndex);
-              const skuValue = currentSkuBox.find(".table-cell").eq(2).find("textarea").val().trim().toUpperCase();
+              const skuValue = currentSkuBox.find(".table-cell .product-edit-form-item.sku-textarea textarea").val().trim().toUpperCase();
 
               // Kiểm tra đối sánh: Nếu tên file nằm gọn trong SKU hoặc ngược lại SKU nằm trong tên file
               // Ví dụ: SKU là "DINOSAUR_DELOW" - Tên file là "DINOSAUR_DELOW"
