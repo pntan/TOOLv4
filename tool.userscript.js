@@ -1021,7 +1021,7 @@ async function tachGia( giaGoc = 0 ){
   // --- LAYER 4: HẬU KIỂM TRA LOGIC TOÁN HỌC (POST-CHECKING VALIDATION) ---
   // Trường hợp khẩn cấp: Nếu bằng một cách nào đó giá đuôi vẫn lớn hơn giá đầu hoặc bằng 0
   if (giaDuoi > giaDau || giaDuoi === 0) {
-    giaDuoi = giaDau; // Cơ chế an toàn (Fallback): Coi như sản phẩm không giảm giá
+    giaDuoi = 0; // Cơ chế an toàn (Fallback): Coi như sản phẩm không giảm giá
   }
 
   return { giaDau, giaDuoi };
@@ -1199,7 +1199,7 @@ async function ProductDetailShopee() {
   waitForElement(".product-edit__container .product-edit__side", async (element) => {
     const maxPriceText = createText({ text: `Giá cao nhất đang bán: <span id="tpv4-max-price"></span>, có thể bán tối thiểu <span id="tpv4-min-accept"></span>` });
     const minPriceText = createText({ text: `Giá thấp nhất đang bán: <span id="tpv4-min-price"></span>, có thể bán tối đa <span id="tpv4-max-accept"></span>` });
-    const bonusInfoCard = createCardContainer({ title: "Thông tin mở rộng", contentHTML: maxPriceText + minPriceText, className: "tp-bonusInfoCard" });
+    const bonusInfoCard = createCardContainer({ title: "Thông tin mở rộng", contentHTML: maxPriceText + minPriceText, className: "tp-bonusInfoCard", style: "margin: 1vw 0" });
 
     $(element).append(bonusInfoCard);
   }, { once: true})
@@ -1260,24 +1260,37 @@ async function ProductDetailShopee() {
           const price = $(item).find(".basic-price.model-edit-input input");
           const sku = $(item).find(".product-edit-form-item.sku-textarea textarea");
 
+          var error = false;
+
           if(sku.val() in price_list){
             const targetPrice = price_list[sku.val()];
             switch (type){
+              // Sửa toàn bộ
               case 0:
                 // Trường hợp tăng giá bán
                 if(parseInt(price.val()) < parseInt(targetPrice)){
                   const errorText = createText({ text: "Giá điều chỉnh cao hơn giá hiện tại", color: "crimson", className: "tp-errorEditPrice" });
                   price.parent().parent().parent().parent().parent().parent().append(errorText);
-                  return;
+                  error = true;
                 }
 
                 // Trường hợp bị 5 lần giá
                 if(parseInt(targetPrice) > parseInt(max_price) || parseInt(targetPrice) < parseInt(min_price)){
                   const errorText = createText({ text: "Giá có thể bị sai quy định 5 lần giá", color: "orange", className: "tp-errorEditPrice" });
                   price.parent().parent().parent().parent().parent().parent().append(errorText);
-                  return
+                  error = true;
                 }
-                break;
+
+                // Nếu không lỗi thì sửa giá
+                await simulateClearReactInput(price);
+                await simulateReactInput(price, targetPrice);
+              break;
+              // Sửa giá đầu
+              case 1:
+                const { giaDau: giaDauGoc, giaDuoi: giaDuoiGoc } = await tachGia(price.val());
+                const { giaDau, giaDuoi } = await tachGia(price_list[sku.val()]);
+                console.log({ giaDauGoc, giaDuoiGoc });
+
             }
           }
         }
