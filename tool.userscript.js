@@ -1207,26 +1207,14 @@ async function ProductDetailShopee() {
 
       $(element).find(".tp-bulkCard").append(editPriceCard);
 
-      // 🔴 1. XỬ LÝ SỰ KIỆN NÚT "XÁC NHẬN" ĐỂ CHẠY LOGIC SỬA GIÁ
-      $(element).find(".tp-bulkCard .tp-editPriceCard button:contains('Xác Nhận')").on("click", async function() {
-        const btn = $(this);
-        
-        // Khóa nút để tránh người dùng click spam khi tiến trình đang chạy
-        btn.prop("disabled", true).text("Đang xử lý...").css("background", "#94a3b8");
+      $(element).find(".tp-bulkCard .tp-editPriceCard button:contains('Xác Nhận')").on("click", async () => {
+        const data = $(element).find(".tp-editPriceCard textarea").val();
+        const type = $(element).find(".tp-editPriceCard select");
 
-        try {
-          // Gọi hàm xử lý cốt lõi đã được tối ưu hiệu năng
-          await suaGiaSKUShopee(); 
-        } catch (error) {
-          console.error("Lỗi sửa giá:", error);
-        } finally {
-          // Mở khóa nút bấm sau khi xử lý xong
-          btn.prop("disabled", false).text("Xác Nhận").css("background", "#3b82f6");
-        }
+        console.log(type);
       });
 
-      // 🟢 2. XỬ LÝ SỰ KIỆN NÚT "HỦY" ĐỂ ĐÓNG VÀ DỌN FORM
-      $(element).find(".tp-bulkCard .tp-editPriceCard button:contains('Hủy')").on("click", function() {
+      $(element).find(".tp-bulkCard .tp-editPriceCard button:contains('Hủy')").on("click", async () => {
         $(element).find(".tp-editPriceCard").remove();
       });
     });
