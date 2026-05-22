@@ -2,7 +2,7 @@
 // @name         LOADER Công cụ hỗ trợ v4 (github)
 // @description  Công cụ hỗ trợ công việc sàn TMĐT v4
 // @namespace    http://tampermonkey.net/
-// @version      3.0.0
+// @version      0.0.0
 // @match        https://banhang.shopee.vn/*
 // @match        https://sellercenter.lazada.vn/*
 
@@ -42,16 +42,21 @@
 // @grant        window.focus
 // @grant        window.onurlchange
 
+// @copyright    2025, TanPhan (nhattanphan2014@gmail.com)
+
+// @license      MIT
+
 // @run-at       document-start
 // ==/UserScript==
 
 (async function(){
   const link = "http://localhost:2105/tool.userscript.js";
+  const timestamp = Date.now();
   
   try {
     const response = await GM.xmlHttpRequest({
       method: "GET",
-      url: link,
+      url: `${link}?timestamp=${timestamp}`,
       nocache: true 
     });
 

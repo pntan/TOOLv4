@@ -1078,7 +1078,8 @@ async function PromotionShopee() {
         if(dataResult.error == 0)
           exist_id.push(id);
       }
-      GM.setClipboard(exist_id);
+
+      GM.setClipboard(exist_id.join("\n"));
       showToast({ text: "Đã lưu ID vào bộ nhớ đệm" })
     })
 
