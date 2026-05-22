@@ -1028,64 +1028,66 @@ async function tachGia( giaGoc = 0 ){
 }
 
 /**
- * Hàm gộp Giá Đầu và Giá Đuôi thành một mức giá Shopee hoàn chỉnh
- * @param {number|string} giaDau Giá trị vế đầu (Ví dụ: 159000)
- * @param {number|string} giaDuoi Giá trị vế đuôi cần lồng vào (Ví dụ: 29000 hoặc 29)
+ * Hàm gộp Giá Đầu và Giá Đuôi dựa trên logic đảo ngược của hàm tachGia
+ * Đảm bảo chính xác tuyệt đối cho mọi phân khúc tiền (Trăm nghìn, Triệu, Chục triệu)
+ * * @param {number|string} giaDau Vế đầu (Ví dụ: 1200000, 1845000)
+ * @param {number|string} giaDuoi Vế đuôi (Ví dụ: 890000, 1355000)
  * @returns {Promise<{gia: number, chuoiGia: string}>}
  */
+/**
+ * Hàm gộp Giá Đầu và Giá Đuôi dựa trên logic Gắn cờ (Flag) và Đo khoảng trống chuỗi
+ * @param {number|string} giaDau Mốc giá đầu (Ví dụ: 69000, 1200000, 1845000)
+ * @param {number|string} giaDuoi Mốc giá đuôi (Ví dụ: 50000, 890000, 1355000)
+ */
 async function gopGia(giaDau = 0, giaDuoi = 0) {
-  // Chuẩn hóa đầu vào về dạng chuỗi số nguyên sạch
-  let strDau = giaDau.toString().trim().replace(/\D/g, "");
-  let strDuoi = giaDuoi.toString().trim().replace(/\D/g, "");
+  // 1. Chuyển sạch về dạng chuỗi số nguyên chuẩn
+  let strDau = giaDau.toString().replace(/\D/g, "");
+  let strDuoi = giaDuoi.toString().replace(/\D/g, "");
 
-  // Trường hợp fallback nếu một trong hai bên trống hoặc bằng 0
-  if (!strDau || parseInt(strDau, 10) === 0) {
-    const valDuoi = parseInt(strDuoi, 10) || 0;
-    return { gia: valDuoi, chuoiGia: valDuoi.toString() };
+  if (!strDau) return { gia: parseInt(strDuoi, 10) || 0, chuoiGia: strDuoi };
+  if (!strDuoi) return { gia: parseInt(strDau, 10) || 0, chuoiGia: strDau };
+
+  // 2. Cắt bỏ 3 chữ số 0 định dạng tiền tệ mặc định ở cuối của Giá Đuôi theo logic ông chỉ
+  let loiDuoi = strDuoi.slice(0, strDuoi.length - 3); // "50000" -> "50", "890000" -> "890", "1355000" -> "1355"
+
+  // 3. Đặt cờ (Flag) tại vị trí trung tâm dựa trên độ dài của Giá Đầu
+  const flag = Math.floor(strDau.length / 2); // "69000" (dài 5) -> flag = 2
+
+  let chuoiKetQua = "";
+
+  // 4. KIỂM TRA ĐỘ LỆCH VÀ PHÂN KHU VỰC CẮT GHÉP THEO FLAG
+  if (strDau.length === strDuoi.length && strDau.length <= 5) {
+    // 🌟 KHU VỰC 1: Phân khúc giá nhỏ (Ví dụ: Đầu 69000, Đuôi 50000)
+    // Lấy phần đầu đứng trước cờ flag
+    const phanDauGiuLai = strDau.slice(0, flag); // "69000" cắt từ 0 đến 2 -> "69"
+    
+    // Đo khoảng trống còn lại: Độ dài Giá Đầu trừ đi phần đã giữ và phần đuôi lẻ sắp nhét vào
+    const phanTrong = strDau.length - phanDauGiuLai.length - loiDuoi.length; // 5 - 2 - 2 = 1 khoảng trống
+    
+    // Bù số 0 vào đúng khoảng trống giữa, sau đó nhét lõi đuôi vào cuối
+    chuoiKetQua = phanDauGiuLai + "0".repeat(phanTrong) + loiDuoi; // "69" + "0" + "50" = "69050"
+  } 
+  else if (loiDuoi.length < strDau.slice(0, -3).length) {
+    // 🌟 KHU VỰC 2: Phân khúc tiền triệu tiêu chuẩn (Ví dụ: Đầu 1200000, Đuôi 890000)
+    // Cắt bỏ phần đuôi tương ứng với độ dài lõi đuôi trực tiếp từ vế đầu đã rút gọn
+    let dauRut = strDau.slice(0, -3); // "1200"
+    const phanDauGiuLai = dauRut.slice(0, -loiDuoi.length); // "1200" cắt bỏ 3 số cuối (bằng độ dài "890") -> "1"
+    
+    chuoiKetQua = phanDauGiuLai + loiDuoi + "000"; // "1" + "890" + "000" = "1200890"
+  } 
+  else {
+    // 🌟 KHU VỰC 3: Trường hợp đè lấn hàng số lớn (Ví dụ: Đầu 1845000, Đuôi 1355000)
+    // Lấy ký tự hàng triệu đầu tiên dựa vào cờ định vị hoặc vị trí 0
+    const chuSoDauTien = strDau.charAt(0); // "1"
+    
+    // Đè trực tiếp toàn bộ lõi đuôi lấn lên (bỏ chữ số đầu của đuôi)
+    chuoiKetQua = chuSoDauTien + loiDuoi.slice(1) + "000"; // "1" + "355" + "000" = "1841355"
   }
-  if (!strDuoi || parseInt(strDuoi, 10) === 0) {
-    const valDau = parseInt(strDau, 10) || 0;
-    return { gia: valDau, chuoiGia: valDau.toString() };
-  }
 
-  // 1. Loại bỏ các số 0 vô nghĩa ở cuối của vế đuôi (nếu có)
-  // Ví dụ: "29000" thực chất có phần số ý nghĩa là "29"
-  let strDuoiRutGọn = strDuoi;
-  while (strDuoiRutGọn.endsWith("0") && strDuoiRutGọn.length > 1) {
-    // Chỉ cắt bớt số 0 nếu độ dài vế đuôi ngắn hơn hoặc bằng số lượng số 0 ở vế đầu
-    const soLuongSo0CuaGiaDau = (strDau.match(/0+$/) || [""])[0].length;
-    if (strDuoiRutGọn.length > soLuongSo0CuaGiaDau) {
-      strDuoiRutGọn = strDuoiRutGọn.slice(0, -1);
-    } else {
-      break;
-    }
-  }
-
-  const doDaiDuoi = strDuoiRutGọn.length;
-
-  // 2. Cắt bỏ số lượng chữ số tương ứng ở cuối của Giá Đầu
-  // Ví dụ: Đầu "159000", Đuôi có 2 số ("29") -> Cắt 2 số cuối của đầu thành "1590"
-  let phanDauGiuLai = strDau.slice(0, -doDaiDuoi);
-
-  // 3. Tiến hành gộp (Nối chuỗi cơ học)
-  let chuoiKetQua = phanDauGiuLai + strDuoiRutGọn;
-
-  // Đảm bảo độ dài chuỗi sau khi gộp phải bằng với độ dài chuỗi Giá Đầu ban đầu
-  if (chuoiKetQua.length < strDau.length) {
-    chuoiKetQua = chuoiKetQua.padEnd(strDau.length, "0");
-  }
-
-  let giaHợpNhat = parseInt(chuoiKetQua, 10) || 0;
-
-  // --- LAYER HẬU KIỂM AN TOÀN (POST-VALIDATION) ---
-  // Nếu giá gộp xong bỗng dưng nhỏ hơn giá đầu ban đầu (Vô lý), dùng giá đầu làm điểm tựa
-  if (giaHợpNhat < parseInt(strDau, 10)) {
-    giaHợpNhat = parseInt(strDau, 10);
-  }
+  let gia = parseInt(chuoiKetQua, 10) || 0;
 
   return {
-    gia: giaHợpNhat,
-    chuoiGia: giaHợpNhat.toString()
+    gia: gia,
   };
 }
 
@@ -1325,7 +1327,14 @@ async function ProductDetailShopee() {
           var error = false;
 
           if(sku.val() in price_list){
-            const targetPrice = price_list[sku.val()];
+            if(price.parent().hasClass("disabled")){
+              const errorText = createText({ text: "Không sửa được giá cho phân loại này", color: "crimson", className: "tp-errorEditPrice" });
+              price.parent().parent().parent().parent().parent().parent().append(errorText);
+              error = true;
+              continue;
+            }
+
+            const targetPrice = parseInt(price_list[sku.val()]);
             switch (type){
               // Sửa toàn bộ
               case 0:
@@ -1350,7 +1359,7 @@ async function ProductDetailShopee() {
                 await simulateReactInput(price, targetPrice);
               break;
               // Sửa giá đầu
-              case 1:
+              case 2:
                 var { giaDau: giaDauGoc, giaDuoi: giaDuoiGoc } = await tachGia(price.val());
                 
                 if( giaDuoiGoc < targetPrice)
@@ -1363,6 +1372,10 @@ async function ProductDetailShopee() {
                   error = true;
                 }
 
+                const percent_discount = (price.val() - targetPrice) / price.val() * 100
+                
+                console.log(percent_discount);
+
                 if(error) return
 
                 const finalPrice = await gopGia(giaDauGoc, targetPrice)
@@ -1370,7 +1383,7 @@ async function ProductDetailShopee() {
                 console.log(finalPrice);
 
                 await simulateClearReactInput(price);
-                await simulateReactInput(price, finalPrice)
+                await simulateReactInput(price, finalPrice.gia.toString())
               break;
             }
           }
