@@ -1146,6 +1146,7 @@ async function ProductDetailShopee() {
   // Lấy thông tin chi tiết sản phẩm
   // /api/v3/product/
   var fetch_product_data = null;
+  var max_price = 0, min_price = 0;
   
   await (async () => {
     const product_id = document.location.pathname.split("/")[document.location.pathname.split("/").length - 1];
@@ -1165,6 +1166,43 @@ async function ProductDetailShopee() {
 
     fetch_product_data = response.data.product_info;
   })()
+
+  // Tính toán giá cao nhất và thấp nhất
+  function caculatePrice(){
+    const row = $(".variation-model-table-container.variation-model-table .eds-scrollbar.middle-scroll-container .variation-model-table-body .table-cell-wrapper");
+    for(const item of row){
+      const price = $(item).find(".basic-price.model-edit-input input");
+      if(max_price == 0 && min_price ==0){
+        max_price = price.val();
+        min_price = price.val();
+        continue;
+      }
+
+      if(max_price < price.val())
+        max_price = price.val();
+
+      if(min_price > price.val())
+        min_price = price.val();
+    }
+
+    const box = $(".tp-bonusInfoCard");
+    box.find("#tpv4-max-price").text((parseInt(max_price)).toLocaleString("vi-VN"));
+    box.find("#tpv4-min-accept").text((parseInt(max_price) / 5).toLocaleString("vi-VN"));
+    box.find("#tpv4-min-price").text((parseInt(min_price)).toLocaleString("vi-VN"));
+    box.find("#tpv4-max-accept").text((parseInt(min_price) * 5).toLocaleString("vi-VN"));
+  }
+
+  // Bắt đầu tính giá cao nhất và thấp nhất
+  waitForElement(".variation-model-table-middle-scroll .variation-model-table-body .table-cell-wrapper", caculatePrice, { once: true });
+
+  // Khung thông tin thêm bên trái
+  waitForElement(".product-edit__container .product-edit__side", async (element) => {
+    const maxPriceText = createText({ text: `Giá cao nhất đang bán: <span id="tpv4-max-price"></span>, có thể bán tối thiểu <span id="tpv4-min-accept"></span>` });
+    const minPriceText = createText({ text: `Giá thấp nhất đang bán: <span id="tpv4-min-price"></span>, có thể bán tối đa <span id="tpv4-max-accept"></span>` });
+    const bonusInfoCard = createCardContainer({ title: "Thông tin mở rộng", contentHTML: maxPriceText + minPriceText, className: "tp-bonusInfoCard" });
+
+    $(element).append(bonusInfoCard);
+  }, { once: true})
 
   // Danh sách các chức năng hàng loạt
   waitForElement(".edit-row.batch-edit-row", async (element) => {
@@ -1208,10 +1246,42 @@ async function ProductDetailShopee() {
       $(element).find(".tp-bulkCard").append(editPriceCard);
 
       $(element).find(".tp-bulkCard .tp-editPriceCard button:contains('Xác Nhận')").on("click", async () => {
-        const data = $(element).find(".tp-editPriceCard textarea").val();
-        const type = $(element).find(".tp-editPriceCard select");
+        const data = parseDataInput({ rawText: $(element).find(".tp-editPriceCard textarea").val(), columnSchema: ["sku", "price"], requiredFields: ["sku", "price"]});
+        const type = $(element).find(".tp-editPriceCard select").prop("selectedIndex");
 
-        console.log(type);
+        var price_list = {};
+        for(const item of data){
+          price_list[item.sku] = item.price;
+        }
+        
+        const row = $(".variation-model-table-middle-scroll .variation-model-table-body .table-cell-wrapper");
+        row.find(".tp-errorEditPrice").remove();
+        for(const item of row){
+          const price = $(item).find(".basic-price.model-edit-input input");
+          const sku = $(item).find(".product-edit-form-item.sku-textarea textarea");
+
+          if(sku.val() in price_list){
+            const targetPrice = price_list[sku.val()];
+            switch (type){
+              case 0:
+                // Trường hợp tăng giá bán
+                if(parseInt(price.val()) < parseInt(targetPrice)){
+                  const errorText = createText({ text: "Giá điều chỉnh cao hơn giá hiện tại", color: "crimson", className: "tp-errorEditPrice" });
+                  price.parent().parent().parent().parent().parent().parent().append(errorText);
+                  return;
+                }
+
+                // Trường hợp bị 5 lần giá
+                if(parseInt(targetPrice) > parseInt(max_price) || parseInt(targetPrice) < parseInt(min_price)){
+                  const errorText = createText({ text: "Giá có thể bị sai quy định 5 lần giá", color: "orange", className: "tp-errorEditPrice" });
+                  price.parent().parent().parent().parent().parent().parent().append(errorText);
+                  return
+                }
+                break;
+            }
+          }
+        }
+
       });
 
       $(element).find(".tp-bulkCard .tp-editPriceCard button:contains('Hủy')").on("click", async () => {
