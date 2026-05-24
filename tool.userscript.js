@@ -17,6 +17,7 @@ async function initTool() {
   // Bước 2: Chạy tính năng kiểm tra sàn Shopee
   PromotionShopee();
   ProductDetailShopee();
+  ListPromotionShopee();
 }
 
 // 🌟 IIFE ẨN DANH: Chạy ngay lập tức khi trang web vừa tải xong
@@ -1437,7 +1438,7 @@ async function PromotionShopee() {
 }
 
 // Trang chi tiết sản phẩm shopee
-/// https://banhang.shopee.vn/portal/product/
+// https://banhang.shopee.vn/portal/product/
 async function ProductDetailShopee() {
   if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/product")) return;
 
@@ -1505,8 +1506,7 @@ async function ProductDetailShopee() {
   // Danh sách các chức năng hàng loạt
   waitForElement(".edit-row.batch-edit-row", async (element) => {
     const replacePriceBtn = createButton({ text: "Cập Nhật Giá" });
-    const groupVariantBtn = createButton({ text: "Nhóm Phân Loại"});
-    const featureCard = createCardContainer({ contentHTML: replacePriceBtn + groupVariantBtn });
+    const featureCard = createCardContainer({ contentHTML: replacePriceBtn });
     const bulkCard = createCardContainer({ title: "Xử Lý Hàng Loạt", contentHTML: featureCard, style: "margin: 1vw 0; width: 100%;", className: "tp-bulkCard" });
 
     $(element).append(bulkCard);
@@ -2062,4 +2062,98 @@ async function ProductDetailShopee() {
     });
 
   }, { once: true });
+
+  waitForElement(".product-edit__section .product-detail-panel.container .panel-title", async (element) => {
+    const response = await ShopeeAPI({
+      path: "/api/marketing/v3/public/discount/search/",
+      method: "POST",
+      payload: {
+        discount_type: 0,
+        keyword: (fetch_product_data.id).toString(),
+        search_type: 2,
+        time_status: 2
+      }
+    })
+
+    console.log(response);
+
+    if(response.code != 0){
+      showToast({ title: "Lỗi", text: "Không lấy được thông tin khuyến mãi" });
+      return;
+    }
+
+    const Promotion_List = response.data;
+
+    const removeSellerPromotion = createButton({ text: "Xóa Khuyến Mãi Shop" });
+    $(element).append(removeSellerPromotion);
+
+    $(element).find("> button:contains('Xóa Khuyến Mãi Shop')").on("click", async () => {
+
+    })
+  }, { once: true })
+}
+
+// Trang danh sách khuyến mãi shopee
+// https://banhang.shopee.vn/portal/marketing/list/discount
+async function ListPromotionShopee(){
+  if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/marketing/list/discount")) return;
+  const param = document.location.search.toString().replace("?","").split("&");
+  var page = 0;
+  var type = 0
+  for(const item of param){
+    const data = item.split("=");
+    if(data[0] == "page")
+      page = data[1];
+
+    if(data[0] == "discountType"){
+      type = data[1] == "all" ? 0 : data[1] == "discount" ? 1 : data[1] == "addondeal" ? 2 : data[1] == "bundle" ? 3 : 0
+    }
+  }
+
+  var LIST_PROMOTION;
+
+  (async () => {
+    const response = await ShopeeAPI({
+      path: "/api/marketing/v3/public/discount/list/",
+      method: "POST",
+      payload: {
+        discount_type: type,
+        limit: 10,
+        offset: page == 1 ? 0 : page * 10 - 10,
+        time_status: 0
+      }
+    })
+
+    if(response.code != 0){
+      showToast({ title: "Lỗi", text: "Có lỗi khi lấy danh sách khuyến mãi" });
+      return;
+    }
+    var data_list = [];
+    for(const item of response.data.discounts){
+      const type = item.discount_type;
+      if(type == 1)
+        data_list.push(item.seller_discount)
+      if(type == 2)
+        data_list.push(item.add_on_deal)
+      if(type == 3)
+        data_list.push(item.bundle_deal)
+    }
+
+    LIST_PROMOTION = {
+      list: data_list,
+      total: response.data.total_count
+    };
+  })()
+
+  waitForElement(".eds-react-table-footer .eds-react-pagination-pager__pages", async (element) => {
+    const row = $(".eds-react-table-content .eds-react-table-tbody tr")
+    var current_index = 0;
+    for(const item of row){
+      console.log(item);
+      console.log(LIST_PROMOTION.list[current_index])
+      const idText = createText({ text: `ID chương trình: ${LIST_PROMOTION.list[current_index].discount_id}`});
+      $(item).find("td:nth-child(1)").append(idText);
+      current_index++;
+    }
+  }, { once: true })
 }
