@@ -411,6 +411,104 @@ function simulateClearReactInput(input) {
 }
 
 /**
+ * Giả lập kéo thả dòng phân loại trên giao diện React (Shopee)
+ * @param {jQuery|HTMLElement} sourceElement - Nút icon kéo (phần tử muốn dịch chuyển)
+ * @param {HTMLElement|jQuery} targetElement - Dòng hoặc vị trí đích muốn thả vào
+ * @param {Object} options - Cấu hình thêm (như clientX, clientY nếu cần)
+ */
+async function simulateDragAndDrop(sourceElement, targetElement, options = {}) {
+  // Đảm bảo lấy đúng DOM element thuần từ jQuery hoặc Element gốc
+  var sourceEl = sourceElement[0] || sourceElement;
+  var targetEl = targetElement[0] || targetElement;
+
+  if (!sourceEl || !targetEl) {
+    console.warn("simulateRowDragAndDrop: Không tìm thấy phần tử nguồn hoặc đích.");
+    return;
+  }
+
+  // Lấy tọa độ thực tế của 2 phần tử để tính vị trí di chuyển chuột
+  const sourceRect = sourceEl.getBoundingClientRect();
+  const targetRect = targetEl.getBoundingClientRect();
+
+  const sX = sourceRect.left + sourceRect.width / 2;
+  const sY = sourceRect.top + sourceRect.height / 2;
+  const tX = targetRect.left + targetRect.width / 2;
+  const tY = targetRect.top + targetRect.height / 2;
+
+  // Tạo một đối tượng DataTransfer trống vì React DnD thường yêu cầu thực thể này để quản lý trạng thái kéo
+  var dataTransfer = new DataTransfer();
+
+  // 1. Khởi động chuỗi sự kiện Mousedown & DragStart trên phần tử nguồn
+  // Gửi mousedown để kích hoạt focus và chuẩn bị kéo của trình duyệt
+  simulateReactEvent($(sourceEl), 'mousedown', { button: 0, buttons: 1, clientX: sX, clientY: sY, ...options });
+  await new Promise(r => setTimeout(r, 30));
+
+  // Tạo và bắn DragStart - Đây là sự kiện mấu chốt để React setup đối tượng đang bị kéo
+  var dragStartEvent = new DragEvent('dragstart', {
+    bubbles: true,
+    cancelable: true,
+    dataTransfer: dataTransfer,
+    clientX: sX,
+    clientY: sY,
+    ...options
+  });
+  sourceEl.dispatchEvent(dragStartEvent);
+  await new Promise(r => setTimeout(r, 50));
+
+  // 2. Giả lập quá trình di chuyển qua vị trí đích (DragOver / DragEnter)
+  // Bắn dragenter lên target để container nhận biết có phần tử đang đi vào vùng của nó
+  var dragEnterEvent = new DragEvent('dragenter', {
+    bubbles: true,
+    cancelable: true,
+    dataTransfer: dataTransfer,
+    clientX: tX,
+    clientY: tY,
+    ...options
+  });
+  targetEl.dispatchEvent(dragEnterEvent);
+
+  // Bắn liên tiếp dragover (phải hoãn một nhịp ngắn) để giả lập chuyển động rê chuột
+  var dragOverEvent = new DragEvent('dragover', {
+    bubbles: true,
+    cancelable: true,
+    dataTransfer: dataTransfer,
+    clientX: tX,
+    clientY: tY,
+    ...options
+  });
+  targetEl.dispatchEvent(dragOverEvent);
+  await new Promise(r => setTimeout(r, 50));
+
+  // 3. Thực hiện thả (Drop) và kết thúc tiến trình (DragEnd / Mouseup)
+  // Gửi sự kiện drop ngay tại tâm của phần tử đích
+  var dropEvent = new DragEvent('drop', {
+    bubbles: true,
+    cancelable: true,
+    dataTransfer: dataTransfer,
+    clientX: tX,
+    clientY: tY,
+    ...options
+  });
+  targetEl.dispatchEvent(dropEvent);
+
+  // Bắn sự kiện kết thúc dragend lên phần tử nguồn ban đầu để xóa trạng thái ghost-image
+  var dragEndEvent = new DragEvent('dragend', {
+    bubbles: true,
+    cancelable: true,
+    dataTransfer: dataTransfer,
+    clientX: tX,
+    clientY: tY,
+    ...options
+  });
+  sourceEl.dispatchEvent(dragEndEvent);
+
+  // Giải phóng chuột bằng mouseup
+  simulateReactEvent($(targetEl), 'mouseup', { clientX: tX, clientY: tY, ...options });
+
+  console.log("Kéo thả thành công từ", sourceEl, "đến", targetEl);
+}
+
+/**
  * Component Text chuẩn (p hoặc span)
  */
 function createText({ tag = "p", text = "", color = "#1e293b", size = "14px", weight = "normal", id = "", className = "", style = "" } = {}) {
@@ -667,6 +765,140 @@ function createToastContainer() {
   container.id = "tp-toast";
   container.style = "position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; max-width: 350px; font-family: sans-serif;";
   document.body.appendChild(container);
+}
+
+/**
+ * Hàm sinh màu sắc cấu hình cao, hỗ trợ Pastel, loại trừ màu và xuất nhiều định dạng CSS
+ * @param {Object} options - Cấu hình sinh màu
+ * @param {string} [options.exactColor] - Mã màu HEX chỉ định ban đầu (Ví dụ: '#FF5733')
+ * @param {boolean} [options.isPastel=false] - Bật chế độ màu Pastel dịu mắt
+ * @param {string[]} [options.excludeList=[]] - Danh sách mã HEX muốn loại trừ (luôn check ở dạng HEX gốc)
+ * @param {'hex' | 'rgb' | 'rgba' | 'oklch'} [options.format='hex'] - Định dạng màu đầu ra
+ * @param {number} [options.alpha=1] - Độ trong suốt (chỉ áp dụng khi chọn format 'rgba')
+ * @returns {string} Chuỗi màu CSS tương ứng với định dạng yêu cầu
+ */
+function generateColor(options = {}) {
+  const { 
+    exactColor, 
+    isPastel = false, 
+    excludeList = [], 
+    format = 'hex', 
+    alpha = 1 
+  } = options;
+
+  // 1. Chuẩn hóa mảng loại trừ (để ở dạng hex chữ thường)
+  const cleanExcludeList = excludeList.map(color => color.toLowerCase().trim());
+
+  let r, g, b;
+  let foundValidColor = false;
+
+  // 2. Xử lý màu chỉ định sẵn
+  if (exactColor) {
+    const formattedExact = exactColor.toLowerCase().trim();
+    if (!cleanExcludeList.includes(formattedExact)) {
+      // Phân rã HEX thành RGB để phục vụ chuyển đổi format phía sau
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(formattedExact);
+      if (result) {
+        r = parseInt(result[1], 16);
+        g = parseInt(result[2], 16);
+        b = parseInt(result[3], 16);
+        foundValidColor = true;
+      }
+    } else {
+      console.warn(`Màu chỉ định ${exactColor} bị loại trừ! Đang sinh màu ngẫu nhiên thay thế...`);
+    }
+  }
+
+  // 3. Vòng lặp sinh màu ngẫu nhiên (nếu không có màu chỉ định hoặc màu chỉ định bị loại trừ)
+  if (!foundValidColor) {
+    for (let attempts = 0; attempts < 100; attempts++) {
+      if (isPastel) {
+        r = Math.floor((Math.random() * 128) + 127);
+        g = Math.floor((Math.random() * 128) + 127);
+        b = Math.floor((Math.random() * 128) + 127);
+      } else {
+        r = Math.floor(Math.random() * 256);
+        g = Math.floor(Math.random() * 256);
+        b = Math.floor(Math.random() * 256);
+      }
+
+      const currentHex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+
+      if (!cleanExcludeList.includes(currentHex)) {
+        foundValidColor = true;
+        break;
+      }
+    }
+  }
+
+  // Phòng hờ xui rủi không tìm được màu ngoài list loại trừ
+  if (!foundValidColor) {
+    r = isPastel ? 240 : 136;
+    g = isPastel ? 240 : 136;
+    b = isPastel ? 240 : 136;
+  }
+
+  // ==========================================
+  // 4. CHUYỂN ĐỔI ĐỊNH DẠNG ĐẦU RA (FORMATTER)
+  // ==========================================
+  const finalHex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+
+  switch (format.toLowerCase()) {
+    case 'rgb':
+      return `rgb(${r}, ${g}, ${b})`;
+      
+    case 'rgba':
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      
+    case 'oklch':
+      return rgbToOklchString(r, g, b);
+      
+    case 'hex':
+    default:
+      return finalHex;
+  }
+}
+
+// ==========================================
+// HÀM HELPER CHUYỂN ĐỔI RGB SANG OKLCH THUẦN CHÍNH XÁC
+// ==========================================
+function rgbToOklchString(r, g, b) {
+  // Chuẩn hóa RGB về khoảng [0, 1]
+  let rL = r / 255, gL = g / 255, bL = b / 255;
+
+  // Chuyển sang sRGB tuyến tính (Linear RGB)
+  const toLinear = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  rL = toLinear(rL); gL = toLinear(gL); bL = toLinear(bL);
+
+  // Chuyển sang không gian XYZ (D65)
+  const x = rL * 0.4124564 + gL * 0.3575761 + bL * 0.1804375;
+  const y = rL * 0.2126729 + gL * 0.7151522 + bL * 0.0721750;
+  const z = rL * 0.0193339 + gL * 0.1191920 + bL * 0.9503041;
+
+  // Chuyển sang không gian LMS hình nón
+  let l = x * 0.8189330 + y * 0.3618667 + z * -0.1288597;
+  let m = x * 0.0329845 + y * 0.9293119 + z * 0.0714351;
+  let s = x * 0.0482003 + y * 0.2643414 + z * 0.6338517;
+
+  // Áp dụng hàm phi tuyến (Căn bậc 3)
+  l = Math.cbrt(Math.max(0, l));
+  m = Math.cbrt(Math.max(0, m));
+  s = Math.cbrt(Math.max(0, s));
+
+  // Chuyển sang Oklab (L, a, b)
+  const L = l * 0.2104542553 + m * 0.7936177850 + s * -0.0040720468;
+  const a = l * 1.9779984951 + m * -2.4285922050 + s * 0.4505937099;
+  const db = l * 0.0259040371 + m * 0.7827717662 + s * -0.8086757660; // đặt tên db tránh trùng biến b gốc
+
+  // Chuyển từ Oklab sang Oklch (Lightness, Chroma, Hue)
+  const C = Math.sqrt(a * a + db * db);
+  let hRad = Math.atan2(db, a);
+  let H = hRad * (180 / Math.PI);
+  if (H < 0) H += 360;
+
+  // Trả về chuỗi CSS oklch chuẩn (Ví dụ: oklch(0.75 0.15 140))
+  // Làm tròn cho chuỗi CSS ngắn gọn, sạch sẽ
+  return `oklch(${L.toFixed(3)} ${C.toFixed(3)} ${H.toFixed(1)})`;
 }
 
 /**
@@ -1088,6 +1320,8 @@ async function gopGia(giaDau = 0, giaDuoi = 0) {
 
   return {
     gia: gia,
+    giaDau,
+    giaDuoi
   };
 }
 
@@ -1271,7 +1505,8 @@ async function ProductDetailShopee() {
   // Danh sách các chức năng hàng loạt
   waitForElement(".edit-row.batch-edit-row", async (element) => {
     const replacePriceBtn = createButton({ text: "Cập Nhật Giá" });
-    const featureCard = createCardContainer({ contentHTML: replacePriceBtn });
+    const groupVariantBtn = createButton({ text: "Nhóm Phân Loại"});
+    const featureCard = createCardContainer({ contentHTML: replacePriceBtn + groupVariantBtn });
     const bulkCard = createCardContainer({ title: "Xử Lý Hàng Loạt", contentHTML: featureCard, style: "margin: 1vw 0; width: 100%;", className: "tp-bulkCard" });
 
     $(element).append(bulkCard);
@@ -1356,9 +1591,31 @@ async function ProductDetailShopee() {
 
                 // Nếu không lỗi thì sửa giá
                 await simulateClearReactInput(price);
-                await simulateReactInput(price, targetPrice);
+                await simulateReactInput(price, targetPrice.toString());
               break;
               // Sửa giá đầu
+              case 1:
+                var { giaDau: giaDauGoc, giaDuoi: giaDuoiGoc } = await tachGia(price.val());
+
+                if(giaDauGoc < targetPrice){
+                  const errorText = createText({ text: `Không cho phép tăng giá bán`, color: "red", className: "tp-errorEditPrice" });
+                  price.parent().parent().parent().parent().parent().parent().append(errorText);
+                  error = true;
+                }
+
+                // Giá đầu nhỏ hơn giá đuôi
+                if(targetPrice < giaDuoiGoc){
+                  const errorText = createText({ text: `Giá đầu sau khi cập nhật nhỏ hơn giá đuôi (${targetPrice.toLocaleString("vi-VN")} < ${giaDuoiGoc.toLocaleString("vi-VN")})`, color: "red", className: "tp-errorEditPrice" });
+                  price.parent().parent().parent().parent().parent().parent().append(errorText);
+                  error = true;
+                }
+
+                if(error) return;
+
+                var finalPrice = await gopGia(targetPrice, giaDuoiGoc);
+              break;
+
+              // Sửa giá đuôi
               case 2:
                 var { giaDau: giaDauGoc, giaDuoi: giaDuoiGoc } = await tachGia(price.val());
                 
@@ -1366,21 +1623,34 @@ async function ProductDetailShopee() {
                   giaDauGoc -= 1000;
 
                 // Giá đầu nhỏ hơn giá đuôi
-                if(giaDauGoc < targetPrice){                  
-                  const errorText = createText({ text: `Giá đầu sau khi cập nhật nhỏ hơn giá đuôi (${giaDauGoc} < ${targetPrice})`, color: "red", className: "tp-errorEditPrice" });
+                if(giaDauGoc < targetPrice){
+                  const errorText = createText({ text: `Giá đầu sau khi cập nhật nhỏ hơn giá đuôi (${giaDauGoc.toLocaleString("vi-VN")} < ${targetPrice.toLocaleString("vi-VN")})`, color: "red", className: "tp-errorEditPrice" });
                   price.parent().parent().parent().parent().parent().parent().append(errorText);
                   error = true;
                 }
 
-                const percent_discount = (price.val() - targetPrice) / price.val() * 100
+                const percent_discount = (price.val() - targetPrice) / price.val() * 100;
                 
-                console.log(percent_discount);
+                if(Math.round(percent_discount) > 50){
+                  const errorText = createText({ text: `Giá sau khuyến mãi đang quá lớn (> 50%)`, color: "red", className: "tp-errorEditPrice" });
+                  price.parent().parent().parent().parent().parent().parent().append(errorText);
+                  error = true;
+
+                  const truePrice = await gopGia(parseInt(targetPrice) * 1.49, targetPrice);
+                  const fixPriceBtn = createButton({ text: `Sửa giá thành ${truePrice.gia.toLocaleString("vi-VN")}`, className: "tp-fixPrice"});
+                  price.parent().parent().parent().parent().parent().parent().append(fixPriceBtn);
+
+                  price.parent().parent().parent().parent().parent().parent().find(".tp-fixPrice").on("click", async (element) => {
+                    row.find(".tp-errorEditPrice").remove();
+                    row.find(".tp-fixPrice").remove();
+                    await simulateClearReactInput(price);
+                    await simulateReactInput(price, truePrice.gia.toString());
+                  })
+                }
 
                 if(error) return
 
-                const finalPrice = await gopGia(giaDauGoc, targetPrice)
-
-                console.log(finalPrice);
+                finalPrice = await gopGia(giaDauGoc, targetPrice);
 
                 await simulateClearReactInput(price);
                 await simulateReactInput(price, finalPrice.gia.toString())
@@ -1394,7 +1664,7 @@ async function ProductDetailShopee() {
       $(element).find(".tp-bulkCard .tp-editPriceCard button:contains('Hủy')").on("click", async () => {
         $(element).find(".tp-editPriceCard").remove();
       });
-    });
+    })
   }, { once: true });
 
   // Mở rộng và load mã phân loại
@@ -1455,10 +1725,12 @@ async function ProductDetailShopee() {
   // Nút thêm phân loại
   waitForElement(".product-tier-variation .variation-container .edit-row-left.edit-label", async (element) => {
     const addVariantBtn = createButton({ text: "Thêm phân loại", style: "margin: 0 2vw" });
+    const groupVariantBtn = createButton({ text: "Nhóm Phân Loại"});
     var hasEl = false;
 
-    $(element).append(addVariantBtn);
+    $(element).append(addVariantBtn + groupVariantBtn);
 
+    // Thêm phân loại
     $(element).find("> button:contains('Thêm phân loại')").on("click", async (e) => {
       if(hasEl) return;
       hasEl = true;
@@ -1530,6 +1802,61 @@ async function ProductDetailShopee() {
         $($(element).prop("currentTarget")).parent().parent().remove();
       })
     })
+
+    
+
+    // Nhóm phân loại
+    $(element).find("> button:contains('Nhóm Phân Loại')").on("click", function() {  
+      // 1. Dựng map dựa trên tier_index[0] làm key
+      const SKU_LIST = {};
+      for (const item of fetch_product_data.model_list) {
+        // Ép về string phòng trường hợp tier_index là số để map chính xác với index dòng
+        SKU_LIST[String(item.tier_index[0])] = { sku: item.sku, name: item.name };
+      }
+
+      const SKU_COLOR = {};
+      
+      // Sửa lại chữ variation viết sai chính tả (.variation-edit-row)
+      const row = $(".variation-edit-panel.variation-option-panel .varaition-edit-row .variation-edit-main .options-item.drag-item");
+      console.log(row);
+      
+      var current_item = 0;
+      
+      for (const item of row) {
+        // Phòng trường hợp số lượng dòng DOM và số lượng item trong fetch_product_data lệch nhau
+        if (!SKU_LIST[String(current_item)]) {
+          current_item++;
+          continue;
+        }
+
+        const sku = SKU_LIST[String(current_item)].sku;
+        const sku_parent = sku.split("-")[0];
+
+        // Kiểm tra cache mã cha
+        if (!SKU_COLOR[sku_parent]) {
+          // Lấy mảng các mã màu đã lưu trong Object để truyền vào list loại trừ
+          const excludes = Object.values(SKU_COLOR); 
+
+          // Gọi hàm sinh màu độc lập của ông
+          const color = generateColor({ 
+            isPastel: true, 
+            excludeList: excludes, // Truyền vào mảng các màu đã tồn tại
+            format: "oklch"
+          });
+          
+          SKU_COLOR[sku_parent] = color;
+        }
+
+        console.log(SKU_COLOR[sku_parent]);
+
+        // Ép item về đối tượng jQuery để xài được hàm .css()
+        $(item).css("background", SKU_COLOR[sku_parent]);
+        $(item).find(".product-edit-form-item-content input").css("background", SKU_COLOR[sku_parent]);
+        
+        // QUAN TRỌNG: Phải tăng index lên sau mỗi vòng lặp
+        current_item++;
+      }
+    });
   }, { once: true });
 
   // Vùng thả - cập nhật ảnh phân loại
