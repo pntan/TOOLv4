@@ -1333,19 +1333,53 @@ async function gopGia(giaDau = 0, giaDuoi = 0) {
 // Trang thao tác với khuyến mãi shopee
 async function PromotionShopee() {
   if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/marketing/discount")) return;
-  
-  // Lấy thực thể jQuery từ context chính của trang Web
-  const $ = typeof unsafeWindow !== "undefined" ? unsafeWindow.$ || unsafeWindow.jQuery : window.$;
 
-  // 🚀 Hành động 1: Chờ phần tử DOM xuất hiện để append nội dung text hiển thị
+  var Promotion_List, Product_List = {}, List_ID = {}, List_Model = {}, LIST_ITEMID = [];
+  // Lấy thêm dữ liệu
+  (async () => {
+    const resPromotion = await ShopeeAPI({
+      path: "/api/marketing/v4/discount/get_discount_items_aggregated/",
+      method: "POST",
+      payload: {
+        limit: 500,
+        offset: 0,
+        promotion_id: parseInt(document.location.pathname.split("/")[document.location.pathname.split("/").length - 1])
+      }
+    })
+
+    if(resPromotion.error != 0) return;
+    showToast({ title: `${resPromotion.data.total_count}/500`, text: "Đã lấy dữ liệu thành công"})
+
+    Promotion_List = resPromotion.data;
+    const resLenght = Promotion_List.total_count;
+
+    var current_index = 0;
+    async function next_step(){
+      if(parseInt(current_index) >= parseInt(resLenght))
+        return;
+      List_ID[Promotion_List.item_info[current_index].name] = Promotion_List.item_info[current_index].item_id;
+      const model_length = Promotion_List.model_info[current_index].models.length;
+      var model_list = {};
+      for(var y = 0; y < model_length; y++){
+        model_list[Promotion_List.model_info[current_index].models[y].name] = Promotion_List.model_info[current_index].models[y].model_id;
+      }
+      List_Model[Promotion_List.model_info[current_index].item_id] = model_list;
+
+      current_index++;
+      next_step();
+    }
+
+    next_step();
+  })()
+
   waitForElement(".list-filter", async (element) => {
     const idTextarea = createTextarea({ placeholder: "Nhập danh sách ID sản phẩm (Mỗi dòng một ID)...", rows: 3, style: "margin-bottom: 10px;" });
-    const scanBtn = createButton({ text: "Quét Sản Phẩm", variant: "primary", style: "margin-right: 6px;" });
+    // const scanBtn = createButton({ text: "Quét Sản Phẩm", variant: "primary", style: "margin-right: 6px;" });
     const delBtn = createButton({ text: "Xóa Khuyến Mãi", variant: "danger" });
 
     const formHTML = createCardContainer({
       title: "Điều chỉnh khuyến mãi",
-      contentHTML: idTextarea + scanBtn + delBtn,
+      contentHTML: idTextarea + delBtn,
       style: "margin: 10px 0; width: 100%;"
     });
 
@@ -1401,11 +1435,48 @@ async function PromotionShopee() {
     })
   }, { once: true });
 
+  // Tự vào chế độ chỉnh sửa
+  waitForElement(".discount-info.card-style .discount-info-header button.edit-button", async (element) => {
+    await simulateReactEvent($(element), "click");
+  })
+  
+  await delay(5000);
+
+  // Nút chỉnh giá đuôi
   waitForElement(".list-filter-container .top-right-btn-container", async (element) => {
-    const giaDuoiBtn = createButton({ text: "Chỉnh Giá Đuôi" })
+    const giaDuoiBtn = createButton({ text: "Chỉnh Giá Đuôi", style: "margin: 0 1vw" })
     $(element).prepend(giaDuoiBtn);
 
+    const dataTextarea = createTextarea({ placeholder: `Nếu có cấu hình đặc biệt, sẽ chỉ những SKU của sản phẩm được đánh dấu được cập nhật giá. Nếu không có cấu hình đặc biệt, toàn bộ các phân loại của sản phẩm được đánh dấu sẽ được cập nhật giá\nMỗi dòng là một SKU/mã phân loại theo cấu trúc:\n - SKU hoặc Mã Phân Loại | giá cấu hình đặc biệt`, style: "flex: 0 0 100%; margin-top: 1vw", className: "tp-dataCustomPrice"});
+
+    $(element).parent().css("flex-wrap", "wrap").append(dataTextarea);
+
     $(element).find("button:contains('Chỉnh Giá Đuôi')").on("click", async (e) => {
+      const dataCustom = $(".tp-dataCustomPrice").val().trim();
+      if(dataCustom.length > 0){
+        const data = parseDataInput({ rawText: dataCustom, columnSchema: ["sku", "price"]});
+        for(const item of data){
+          const row = $(`.tp-sku:contains("${item.sku}")`).parent().parent().parent().parent().parent().parent().parent().parent().find("> div");
+          for(const itemRow of row){
+            const box = $(itemRow).find("> div:nth-child(1)");
+            const origin_price = (box.find(".item-content.item-price div")[0].innerText).replace("₫", "").replace(".", "");
+            const discount_price = (box.find(".price-discount-form .price-discount-input input"));
+            const currency_price = discount_price[0];
+            const percent_price = discount_price[1];
+            const switcher = (box.find(".item-content.item-enable-disable .eds-switch"));
+            if(!switcher.hasClass("eds-switch--disabled")){
+              if(switcher.hasClass("eds-switch--close")){
+                $(switcher).focus().trigger("click").click();
+                await delay(200);
+              }
+              console.log(box);
+              await simulateClearReactInput($(currency_price));
+              await simulateReactInput($(currency_price), item.price.toString());
+            }
+          }
+        }
+        return;
+      }
       const list = $(".discount-items-wrapper .discount-items .discount-item-component");
       for(const item of list){
         if($(item).find(".discount-item-header .eds-checkbox.discount-item-selector input:checked").length > 0){
@@ -1420,7 +1491,6 @@ async function PromotionShopee() {
             const switcher = (box.find(".item-content.item-enable-disable .eds-switch"))
             if(!switcher.hasClass("eds-switch--disabled")){
               if(switcher.hasClass("eds-switch--close")){
-                console.log("A");
                 $(switcher).focus().trigger("click").click();
                 await delay(200);
               }
@@ -1434,6 +1504,89 @@ async function PromotionShopee() {
 
       showToast({ text: "Cập nhật giá hoàn tất" })
     })
+  }, { once: true })
+
+  // Bổ sung thêm thông tin cho các sản phẩm
+  waitForElement(".discount-items > div:nth-child(2)", async (element) => {
+    // Hiển thị đầy đủ tên phân loại
+    // $(".discount-item-component .discount-item-header .header-left-area .info .name .ellipsis-content.single").removeClass("ellipsis-content");
+    $(".discount-item-component .discount-edit-item-model-list .discount-edit-item-model-component .item-content.item-variation .ellipsis-content.single").removeClass("ellipsis-content");
+
+    const box = $(element).find("div.discount-item-component");
+    for(const itemBox of box){
+      const itemName = $(itemBox).find(".discount-item-header .item-header-content .header-left-top .info .name .single").text();
+      const itemID = List_ID[itemName.toString().trim()];
+      $(itemBox).find(".discount-item-header .item-header-content .header-left-top .info .name").append(createText({ text: `ID sản phẩm: <span class="tp-itemid">${itemID}</span>`}));
+
+      const row = $(itemBox).find(".discount-edit-item-model-list .discount-edit-item-model-component")
+      for(const itemRow of row){
+        const modelName = $(itemRow).find(".item-content.item-variation .single").text();
+        const modelID = List_Model[itemID][modelName.toString().trim()];
+        $(itemRow).find(".item-content.item-variation .single").parent().append(createText({ text: `ID phân loại: <span class="tp-modelid">${modelID}</span>`, style: "font-size: smaller"}));
+      }
+    }
+
+    // Lấy SKU
+    const itemid_list = [];
+    $(".tp-itemid").each((i, v) => {
+      const textId = $(v).text().trim();
+      if (textId) itemid_list.push(textId);
+    });
+
+    if (itemid_list.length > 0) {
+      // Thay forEach bằng for...of để await hoạt động chuẩn tuần tự
+      for (const v of itemid_list) {
+        try {
+          const resProduct = await ShopeeAPI({
+            method: "GET",
+            path: "/api/v3/product/get_product_info",
+            payload: {
+              product_id: v.toString().trim(), // Đảm bảo ép kiểu về số nếu API yêu cầu
+              is_draft: false,
+            }
+          });
+
+          // Nếu lỗi hoặc không có dữ liệu model_list thì bỏ qua, đi tiếp con sau
+          if (!resProduct || resProduct.code !== 0 || !resProduct.data?.product_info?.model_list) {
+            logging({ type: "error", title: "#PROMOTIONSHOPEE", text: `Không lấy được thông tin cho sản phẩm ID: ${v}`})
+            continue;
+          }
+
+          const productInfo = resProduct.data.product_info;
+          
+          // SỬA: Khởi tạo là Object {} để lưu trữ dạng cặp Key - Value chuẩn chỉnh
+          let model_mapping = {}; 
+          
+          for (const item of productInfo.model_list) {
+            model_mapping[item.id] = {
+              name: item.name,
+              id: item.id,
+              sku: item.sku,
+            };
+          }
+          
+          // Lưu vào danh sách tổng
+          Product_List[productInfo.id] = model_mapping;
+
+          // Thêm một khoảng nghỉ ngắn (ví dụ 100ms) giữa các request để né cơ chế quét bot của Shopee
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+        } catch (error) {
+          logging({ type: "error", title: "#PROMOTIONSHOPEE", text: `Lỗi khi gọi API cho item ${v}: ${error}`})
+        }
+      }
+    }
+    // Nếu có SKU thì hiện ra
+    if(Product_List){
+      $(".tp-itemid").each((i, v) => {
+        const itemid = $(v).text();
+        $(v).parent().parent().parent().parent().parent().parent().parent().parent().parent().find(".tp-modelid").each((i, v) => {
+          const modelid = $(v).text();
+          const sku = Product_List[itemid][modelid].sku;
+          $(v).parent().parent().append(createText({ text: `SKU: <span class="tp-sku">${sku}</span>`, style: "font-size: smaller"}));
+        });
+      })
+    }
   }, { once: true })
 }
 
@@ -2063,6 +2216,7 @@ async function ProductDetailShopee() {
 
   }, { once: true });
 
+  // Gỡ khuyến mãi
   waitForElement(".product-edit__section .product-detail-panel.container .panel-title", async (element) => {
     const response = await ShopeeAPI({
       path: "/api/marketing/v3/public/discount/search/",
@@ -2075,14 +2229,16 @@ async function ProductDetailShopee() {
       }
     })
 
-    console.log(response);
-
     if(response.code != 0){
       showToast({ title: "Lỗi", text: "Không lấy được thông tin khuyến mãi" });
       return;
     }
 
     const Promotion_List = response.data;
+
+    for(const item of response.data.discounts){
+      if(item) return
+    }
 
     const removeSellerPromotion = createButton({ text: "Xóa Khuyến Mãi Shop" });
     $(element).append(removeSellerPromotion);

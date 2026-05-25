@@ -3,8 +3,7 @@
 // @description  Công cụ hỗ trợ công việc sàn TMĐT v4
 // @namespace    http://tampermonkey.net/
 // @version      0.0.0
-// @match        https://banhang.shopee.vn/*
-// @match        https://sellercenter.lazada.vn/*
+// @match        https://*/*
 
 // @connect      *
 
