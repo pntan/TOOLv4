@@ -18,6 +18,7 @@ async function initTool() {
   PromotionShopee();
   ProductDetailShopee();
   ListPromotionShopee();
+  // TestChat();
 }
 
 // 🌟 IIFE ẨN DANH: Chạy ngay lập tức khi trang web vừa tải xong
@@ -1326,6 +1327,37 @@ async function gopGia(giaDau = 0, giaDuoi = 0) {
   };
 }
 
+async function TestChat(){
+  logging({ title: "TESTCHAT"})
+  $("body #app").prepend(createTextarea({className: "tp-testchatdata", style: "margin-top: 50vh"}) + createButton({className: "tp-testchatbtn"}));
+
+  $(".tp-testchatbtn").on("click", async () => {
+    const data = $(".tp-testchatdata").val();
+    const payload = {chat: data};
+    return new Promise((resolve, reject) => {
+      GM.xmlHttpRequest({
+        method: "POST",
+        url: "http://localhost:5678/webhook-test/aa806870-4059-4add-9dd0-67496b284c6b/test-chat",
+        headers: { "Content-Type": "application/json" },
+        // 🌟 CHỈ CHO PHÉP TRUYỀN DATA/BODY NẾU KHÔNG PHẢI LÀ LỆNH GET HOẶC HEAD
+        data: JSON.stringify(payload) || null,
+        onload: function(response) {
+          if (response.status === 200) {
+            try {
+              resolve(JSON.parse(response.responseText));
+            } catch (e) {
+              resolve(response.responseText);
+            }
+          } else {
+            console.log(response);
+            reject(`Lỗi Status: ${response.status}`);
+          }
+        },
+        onerror: (error) => reject(error)
+      });
+    });
+  })
+}
 // ==========================================
 // 3. LOGIC TÍNH NĂNG CHI TIẾT (FEATURES)
 // ==========================================
@@ -1596,7 +1628,7 @@ async function PromotionShopee() {
 // Trang chi tiết sản phẩm shopee
 // https://banhang.shopee.vn/portal/product/
 async function ProductDetailShopee() {
-  if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/product")) return;
+  if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/product") && document.location.pathname.split("/").length == 4) return;
 
   // Lấy thông tin chi tiết sản phẩm
   // /api/v3/product/
