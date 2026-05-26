@@ -1628,7 +1628,7 @@ async function PromotionShopee() {
 // Trang chi tiết sản phẩm shopee
 // https://banhang.shopee.vn/portal/product/
 async function ProductDetailShopee() {
-  if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/product") && document.location.pathname.split("/").length == 4) return;
+  if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/product") || document.location.pathname.split("/").length != 4) return;
 
   // Lấy thông tin chi tiết sản phẩm
   // /api/v3/product/
