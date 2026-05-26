@@ -1456,22 +1456,25 @@ async function PromotionShopee() {
       if(dataCustom.length > 0){
         const data = parseDataInput({ rawText: dataCustom, columnSchema: ["sku", "price"]});
         for(const item of data){
-          const row = $(`.tp-sku:contains("${item.sku}")`).parent().parent().parent().parent().parent().parent().parent().parent().find("> div");
+          const row = $(`.tp-sku:contains(${item.sku.trim()})`).parent().parent().parent().parent().parent().parent().parent().parent().find("> div");
           for(const itemRow of row){
-            const box = $(itemRow).find("> div:nth-child(1)");
-            const origin_price = (box.find(".item-content.item-price div")[0].innerText).replace("₫", "").replace(".", "");
-            const discount_price = (box.find(".price-discount-form .price-discount-input input"));
-            const currency_price = discount_price[0];
-            const percent_price = discount_price[1];
-            const switcher = (box.find(".item-content.item-enable-disable .eds-switch"));
-            if(!switcher.hasClass("eds-switch--disabled")){
-              if(switcher.hasClass("eds-switch--close")){
-                $(switcher).focus().trigger("click").click();
-                await delay(200);
+            console.log(itemRow);
+            if($(itemRow).parent().parent().find(".discount-item-header .eds-checkbox.discount-item-selector input:checked").length > 0){
+              const box = $(itemRow).find("> div:nth-child(1)");
+              const origin_price = (box.find(".item-content.item-price div")[0].innerText).replace("₫", "").replace(".", "");
+              const discount_price = (box.find(".price-discount-form .price-discount-input input"));
+              const currency_price = discount_price[0];
+              const percent_price = discount_price[1];
+              const switcher = (box.find(".item-content.item-enable-disable .eds-switch"));
+              if(!switcher.hasClass("eds-switch--disabled")){
+                if(switcher.hasClass("eds-switch--close")){
+                  $(switcher).focus().trigger("click").click();
+                  await delay(200);
+                }
+                console.log($(currency_price));
+                await simulateClearReactInput($(currency_price));
+                await simulateReactInput($(currency_price), item.price.toString());
               }
-              console.log(box);
-              await simulateClearReactInput($(currency_price));
-              await simulateReactInput($(currency_price), item.price.toString());
             }
           }
         }
