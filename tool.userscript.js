@@ -1404,6 +1404,7 @@ async function PromotionShopee() {
     next_step();
   })()
 
+
   waitForElement(".list-filter", async (element) => {
     const idTextarea = createTextarea({ placeholder: "Nhập danh sách ID sản phẩm (Mỗi dòng một ID)...", rows: 3, style: "margin-bottom: 10px;" });
     // const scanBtn = createButton({ text: "Quét Sản Phẩm", variant: "primary", style: "margin-right: 6px;" });
@@ -1451,8 +1452,6 @@ async function PromotionShopee() {
     $form.find("button:contains('Xóa Khuyến Mãi')").on("click", async (e) => {
       const exist_id = [];
       const id_list = ($form.find("textarea")[0].value.trim()).split("\n");
-
-      console.log(id_list);
 
       const dataResult = await ShopeeAPI({
         method: "POST",
@@ -2283,36 +2282,69 @@ async function ProductDetailShopee() {
   }, { once: true})
 
   // Gỡ khuyến mãi
-  // waitForElement(".product-edit__section .product-detail-panel.container .panel-title", async (element) => {
-  //   const response = await ShopeeAPI({
-  //     path: "/api/marketing/v3/public/discount/search/",
-  //     method: "POST",
-  //     payload: {
-  //       discount_type: 0,
-  //       keyword: (fetch_product_data.id).toString(),
-  //       search_type: 2,
-  //       time_status: 2
-  //     }
-  //   })
+  waitForElement(".product-edit__section .product-detail-panel.container .panel-title", async (element) => {
+    const response = await ShopeeAPI({
+      path: "/api/marketing/v3/public/discount/search/",
+      method: "POST",
+      payload: {
+        discount_type: 0,
+        keyword: (fetch_product_data.id).toString(),
+        search_type: 2,
+        time_status: 2
+      }
+    })
 
-  //   if(response.code != 0){
-  //     showToast({ title: "Lỗi", text: "Không lấy được thông tin khuyến mãi" });
-  //     return;
-  //   }
+    if(response.code != 0){
+      showToast({ title: "Lỗi", text: "Không lấy được thông tin khuyến mãi" });
+      return;
+    }
 
-  //   const Promotion_List = response.data;
+    const Promotion_List = response.data;
+    var hasPromotionShop = false, hasAddOn = false, hasBundle = false;
+    var promotionShopID = "", addOnID = "", bundleID = "";
 
-  //   for(const item of response.data.discounts){
-  //     if(item) return
-  //   }
+    for(const item of response.data.discounts){
+      console.log(item);
+      if(item.discount_type == 1){
+        hasPromotionShop = true;
+        promotionShopID = item.discount_id;
+      }
+      if(item.discount_type == 2){
+        hasAddOn = true;
+        addOnID = item.discount_id;
+      }
+      if(item.discount_type == 3){
+        hasBundle = true;
+        bundleID = item.discount_id;
+      }
+    }
 
-  //   const removeSellerPromotion = createButton({ text: "Xóa Khuyến Mãi Shop" });
-  //   $(element).append(removeSellerPromotion);
+    const removeSellerPromotion = createButton({ text: "Xóa Khuyến Mãi Shop", style: "font-size: xx-small; margin-top: 1vw" });
+    const removeBundlePromotion = createButton({ text: "Xóa Combo Khuyến Mãi", style: "font-size: xx-small; margin-top: 1vw" });
+    const removeAddonPromotion = createButton({ text: "Xóa Chương Trình Tặng Quà", style: "font-size: xx-small; margin-top: 1vw" });
 
-  //   $(element).find("> button:contains('Xóa Khuyến Mãi Shop')").on("click", async () => {
+    if(hasPromotionShop)
+      $(element).parent().append(removeSellerPromotion);
+    if(hasAddOn)
+      $(element).parent().append(removeAddonPromotion);
+    if(hasBundle)
+      $(element).parent().append(removeBundlePromotion);
 
-  //   })
-  // }, { once: true })
+    $(element).find("> button:contains('Xóa Khuyến Mãi Shop')").on("click", async () => {
+      const product_id = fetch_product_data.id;
+
+      const dataResult = await ShopeeAPI({
+        method: "POST",
+        path: "/api/marketing/v4/discount/delete_abnormal_seller_discount_items/",
+        payload: {
+          item_id_list: product_id.map(Number), // "4049938414, 23986523876",
+          promotion_id: parseInt(promotion_id),
+        }
+      });
+
+      showToast({ text: "Đã xóa các sản phẩm khỏi chương trình" })
+    })
+  }, { once: true })
 }
 
 // Trang danh sách khuyến mãi shopee
