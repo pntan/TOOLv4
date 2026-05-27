@@ -2183,7 +2183,7 @@ async function ProductDetailShopee() {
               }
               
               // Hỗ trợ tìm kiếm theo từ khóa chứa trong tên file (Dự phòng nâng cao)
-              const partialMatch = Object.keys(fileMap).find(fileName => fileName.includes(skuValue) || skuValue.includes(fileName));
+              const partialMatch = Object.keys(fileMap).find(fileName => fileName.toString().trim() == skuValue.toString().trim() || skuValue.toString().trim() == fileName.toString().trim());
               if (partialMatch) {
                 matchedFile = fileMap[partialMatch];
                 matchedSkuText = skuValue;
