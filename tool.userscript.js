@@ -1696,9 +1696,9 @@ async function ComboPromotionShopee(){
   if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/marketing/bundle/")) return;
 
   // Tự vào chế độ chỉnh sửa
-  waitForElement(".eds-react-card .eds-react-card__title button.eds-react-button", async (element) => {
-    await simulateReactEvent($(element), "click");
-  }, { once: true })
+  // waitForElement(".eds-react-card .eds-react-card__title button.eds-react-button", async (element) => {
+  //   await simulateReactEvent($(element), "click");
+  // }, { once: true })
 
   await delay(2000);
 
@@ -1706,8 +1706,9 @@ async function ComboPromotionShopee(){
   waitForElement("main", async (element) => {
     console.log($(element));
     const box_class = $(element).find("form > div").prop("className");
-    const data_textarea = createTextarea({ placeholder: "Dữ liệu" });
-    const bulk_card = createCardContainer({ title: "Thao Tác Hàng Loạt", contentHTML: data_textarea ,className: box_class });
+    const data_textarea = createTextarea({ placeholder: "Dữ liệu để xóa sản phẩm, mỗi ID là một dòng" });
+    const del_btn = createButton({ text: "Xóa Sản Phẩm", style: "margin-top: 1vw", variant: "danger" })
+    const bulk_card = createCardContainer({ title: "Thao Tác Hàng Loạt", contentHTML: data_textarea + del_btn ,className: box_class });
     $(element).find("form > div:nth-child(1)").after(bulk_card);
   }, { once: true })
 }
