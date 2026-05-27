@@ -1706,7 +1706,9 @@ async function ComboPromotionShopee(){
   waitForElement("main", async (element) => {
     console.log($(element));
     const box_class = $(element).find("form > div").prop("className");
-    console.log(box_class);
+    const data_textarea = createTextarea({ placeholder: "Dữ liệu" });
+    const bulk_card = createCardContainer({ title: "Thao Tác Hàng Loạt", contentHTML: data_textarea ,className: box_class });
+    $(element).find("form > div:nth-child(1)").after(bulk_card);
   }, { once: true })
 }
 
