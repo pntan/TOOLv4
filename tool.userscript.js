@@ -1857,9 +1857,10 @@ async function ProductDetailShopee() {
 
   // Mở rộng và load mã phân loại
   waitForElement(".edit-row-right-full .variation-model-table-container.has-footer.variation-model-table .variation-model-table-footer .show-more-button", async (element) => {
-    simulateReactEvent($(element).find("button"), "click");
+    if($(element).find("button span").text().toLowerCase().startsWith("xem tất cả"))
+      simulateReactEvent($(element).find("button"), "click");
 
-    await delay(500);
+    await delay(1500);
 
     waitForElement(".variation-model-table-container.variation-model-table .eds-scrollbar.middle-scroll-container .variation-model-table-middle-scroll .variation-model-table-body", async (element) => {
       const product_id = document.location.pathname.split("/")[document.location.pathname.split("/").length - 1];
@@ -2251,37 +2252,67 @@ async function ProductDetailShopee() {
 
   }, { once: true });
 
-  // Gỡ khuyến mãi
-  waitForElement(".product-edit__section .product-detail-panel.container .panel-title", async (element) => {
-    const response = await ShopeeAPI({
-      path: "/api/marketing/v3/public/discount/search/",
-      method: "POST",
-      payload: {
-        discount_type: 0,
-        keyword: (fetch_product_data.id).toString(),
-        search_type: 2,
-        time_status: 2
+  // Xóa phân loại tại danh sách chi tiết
+  waitForElement(".variation-model-table-main .variation-model-table-fixed-left .variation-model-table-body", async (element) => {
+    await delay(1000);
+
+    const row = $(element).find(".table-cell-wrapper");
+    var current_row = 0;
+    for(const cel of row){
+      const current_name = $(cel).prop("innerText");
+      const delBtn = $(createButton({ text: "Xóa Phân Loại", className: `tp-delvariantbtn`, variant: "danger", style: "font-size: xx-small"})).attr("data-name", current_name);
+      $(cel).find(".table-cell").append(delBtn);
+      current_row++;
+    }
+
+    $(".variation-model-table-main .variation-model-table-fixed-left .variation-model-table-body .table-cell-wrapper .table-cell .tp-delvariantbtn").on("click", async (e) => {
+      const click_name = ($($(e).prop("currentTarget")).attr("data-name"));
+      console.log(click_name);
+      const rows = $(".variation-edit-main .variation-option-edit .option-container .options-item.drag-item");
+      for(const row of rows){
+        const name = $(row).find(".product-edit-form-item-content input").val();
+        if(name.toString().trim() == click_name.toString().trim()){
+          const removeBox = $(row).find(".options-action .options-item-btn.options-remove-btn span");
+          await simulateReactEvent(removeBox, "click");
+        }
       }
+
+      // const removeBox = $(`.variation-edit-main .variation-option-edit .option-container .options-item.drag-item`).eq(click_name).find(".options-action .options-item-btn.options-remove-btn span");
+      // simulateReactEvent(removeBox, "click");
     })
+  }, { once: true})
 
-    if(response.code != 0){
-      showToast({ title: "Lỗi", text: "Không lấy được thông tin khuyến mãi" });
-      return;
-    }
+  // Gỡ khuyến mãi
+  // waitForElement(".product-edit__section .product-detail-panel.container .panel-title", async (element) => {
+  //   const response = await ShopeeAPI({
+  //     path: "/api/marketing/v3/public/discount/search/",
+  //     method: "POST",
+  //     payload: {
+  //       discount_type: 0,
+  //       keyword: (fetch_product_data.id).toString(),
+  //       search_type: 2,
+  //       time_status: 2
+  //     }
+  //   })
 
-    const Promotion_List = response.data;
+  //   if(response.code != 0){
+  //     showToast({ title: "Lỗi", text: "Không lấy được thông tin khuyến mãi" });
+  //     return;
+  //   }
 
-    for(const item of response.data.discounts){
-      if(item) return
-    }
+  //   const Promotion_List = response.data;
 
-    const removeSellerPromotion = createButton({ text: "Xóa Khuyến Mãi Shop" });
-    $(element).append(removeSellerPromotion);
+  //   for(const item of response.data.discounts){
+  //     if(item) return
+  //   }
 
-    $(element).find("> button:contains('Xóa Khuyến Mãi Shop')").on("click", async () => {
+  //   const removeSellerPromotion = createButton({ text: "Xóa Khuyến Mãi Shop" });
+  //   $(element).append(removeSellerPromotion);
 
-    })
-  }, { once: true })
+  //   $(element).find("> button:contains('Xóa Khuyến Mãi Shop')").on("click", async () => {
+
+  //   })
+  // }, { once: true })
 }
 
 // Trang danh sách khuyến mãi shopee
