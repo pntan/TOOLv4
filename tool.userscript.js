@@ -18,6 +18,7 @@ async function initTool() {
   PromotionShopee();
   ProductDetailShopee();
   ListPromotionShopee();
+  ComboPromotionShopee();
   // TestChat();
 }
 
@@ -1624,6 +1625,91 @@ async function PromotionShopee() {
   }, { once: true })
 }
 
+// Trang danh sách khuyến mãi shopee
+// https://banhang.shopee.vn/portal/marketing/list/discount
+async function ListPromotionShopee(){
+  if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/marketing/list/discount")) return;
+  const param = document.location.search.toString().replace("?","").split("&");
+  var page = 0;
+  var type = 0
+  for(const item of param){
+    const data = item.split("=");
+    if(data[0] == "page")
+      page = data[1];
+
+    if(data[0] == "discountType"){
+      type = data[1] == "all" ? 0 : data[1] == "discount" ? 1 : data[1] == "addondeal" ? 2 : data[1] == "bundle" ? 3 : 0
+    }
+  }
+
+  var LIST_PROMOTION;
+
+  (async () => {
+    const response = await ShopeeAPI({
+      path: "/api/marketing/v3/public/discount/list/",
+      method: "POST",
+      payload: {
+        discount_type: type,
+        limit: 10,
+        offset: page == 1 ? 0 : page * 10 - 10,
+        time_status: 0
+      }
+    })
+
+    if(response.code != 0){
+      showToast({ title: "Lỗi", text: "Có lỗi khi lấy danh sách khuyến mãi" });
+      return;
+    }
+    var data_list = [];
+    for(const item of response.data.discounts){
+      const type = item.discount_type;
+      if(type == 1)
+        data_list.push(item.seller_discount)
+      if(type == 2)
+        data_list.push(item.add_on_deal)
+      if(type == 3)
+        data_list.push(item.bundle_deal)
+    }
+
+    LIST_PROMOTION = {
+      list: data_list,
+      total: response.data.total_count
+    };
+  })()
+
+  waitForElement(".eds-react-table-footer .eds-react-pagination-pager__pages", async (element) => {
+    const row = $(".eds-react-table-content .eds-react-table-tbody tr")
+    var current_index = 0;
+    for(const item of row){
+      console.log(item);
+      console.log(LIST_PROMOTION.list[current_index])
+      const idText = createText({ text: `ID chương trình: ${LIST_PROMOTION.list[current_index].discount_id}`});
+      $(item).find("td:nth-child(1)").append(idText);
+      current_index++;
+    }
+  }, { once: true })
+}
+
+// Trang thái tác với combo khuyến mãi shopee
+// https://banhang.shopee.vn/portal/marketing/bundle/
+async function ComboPromotionShopee(){
+  if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/marketing/bundle/")) return;
+
+  // Tự vào chế độ chỉnh sửa
+  waitForElement(".eds-react-card .eds-react-card__title button.eds-react-button", async (element) => {
+    await simulateReactEvent($(element), "click");
+  }, { once: true })
+
+  await delay(2000);
+
+  // Tạo vùng thao tác hàng loạt
+  waitForElement("main", async (element) => {
+    console.log($(element));
+    const box_class = $(element).find("form > div").prop("className");
+    console.log(box_class);
+  }, { once: true })
+}
+
 // Trang chi tiết sản phẩm shopee
 // https://banhang.shopee.vn/portal/product/
 async function ProductDetailShopee() {
@@ -2350,70 +2436,5 @@ async function ProductDetailShopee() {
         console.log(response);
       }
     })
-  }, { once: true })
-}
-
-// Trang danh sách khuyến mãi shopee
-// https://banhang.shopee.vn/portal/marketing/list/discount
-async function ListPromotionShopee(){
-  if(!document.location.href.startsWith("https://banhang.shopee.vn/portal/marketing/list/discount")) return;
-  const param = document.location.search.toString().replace("?","").split("&");
-  var page = 0;
-  var type = 0
-  for(const item of param){
-    const data = item.split("=");
-    if(data[0] == "page")
-      page = data[1];
-
-    if(data[0] == "discountType"){
-      type = data[1] == "all" ? 0 : data[1] == "discount" ? 1 : data[1] == "addondeal" ? 2 : data[1] == "bundle" ? 3 : 0
-    }
-  }
-
-  var LIST_PROMOTION;
-
-  (async () => {
-    const response = await ShopeeAPI({
-      path: "/api/marketing/v3/public/discount/list/",
-      method: "POST",
-      payload: {
-        discount_type: type,
-        limit: 10,
-        offset: page == 1 ? 0 : page * 10 - 10,
-        time_status: 0
-      }
-    })
-
-    if(response.code != 0){
-      showToast({ title: "Lỗi", text: "Có lỗi khi lấy danh sách khuyến mãi" });
-      return;
-    }
-    var data_list = [];
-    for(const item of response.data.discounts){
-      const type = item.discount_type;
-      if(type == 1)
-        data_list.push(item.seller_discount)
-      if(type == 2)
-        data_list.push(item.add_on_deal)
-      if(type == 3)
-        data_list.push(item.bundle_deal)
-    }
-
-    LIST_PROMOTION = {
-      list: data_list,
-      total: response.data.total_count
-    };
-  })()
-
-  waitForElement(".eds-react-table-footer .eds-react-pagination-pager__pages", async (element) => {
-    const row = $(".eds-react-table-content .eds-react-table-tbody tr")
-    var current_index = 0;
-    for(const item of row){
-      console.log(item);
-      console.log(LIST_PROMOTION.list[current_index])
-      const idText = createText({ text: `ID chương trình: ${LIST_PROMOTION.list[current_index].discount_id}`});
-      $(item).find("td:nth-child(1)").append(idText);
-      current_index++;
-    }
   }, { once: true })
 }
