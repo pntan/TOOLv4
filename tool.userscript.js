@@ -2307,15 +2307,15 @@ async function ProductDetailShopee() {
       console.log(item);
       if(item.discount_type == 1){
         hasPromotionShop = true;
-        promotionShopID = item.discount_id;
+        promotionShopID = item.seller_discount.discount_id;
       }
       if(item.discount_type == 2){
         hasAddOn = true;
-        addOnID = item.discount_id;
+        addOnID = item.add_on_deal.discount_id;
       }
       if(item.discount_type == 3){
         hasBundle = true;
-        bundleID = item.discount_id;
+        bundleID = item.bundle_deal.discount_id;
       }
     }
 
@@ -2330,19 +2330,25 @@ async function ProductDetailShopee() {
     if(hasBundle)
       $(element).parent().append(removeBundlePromotion);
 
-    $(element).find("> button:contains('Xóa Khuyến Mãi Shop')").on("click", async () => {
-      const product_id = fetch_product_data.id;
+    $(element).parent().find("> button:contains('Xóa Khuyến Mãi Shop')").on("click", async () => {
+      const product_id = fetch_product_data.id.toString().split(" ");
 
-      const dataResult = await ShopeeAPI({
+      const response = await ShopeeAPI({
         method: "POST",
         path: "/api/marketing/v4/discount/delete_abnormal_seller_discount_items/",
         payload: {
           item_id_list: product_id.map(Number), // "4049938414, 23986523876",
-          promotion_id: parseInt(promotion_id),
+          promotion_id: parseInt(promotionShopID),
         }
       });
 
-      showToast({ text: "Đã xóa các sản phẩm khỏi chương trình" })
+      console.log(response);
+      if(response.error == 0)
+        showToast({ text: "Đã xóa các sản phẩm khỏi chương trình" })
+      else{
+        showToast({ title: "Lỗi Gỡ Khuyến Mãi", text: "Có lỗi đã xảy ra"});
+        console.log(response);
+      }
     })
   }, { once: true })
 }
